@@ -162,3 +162,7 @@ assert all(isler.SABAH.search(s) for s in ("günaydın", "günaydın kanka!", "k
 assert not any(isler.SABAH.search(s) for s in ("günaydın, şu kodu düzelt", "bugün hava nasıl"))
 assert VARSAYILAN["sabah"] is True and VARSAYILAN["ozet"] == ""
 print("tamam sabah")
+assert all(yonlendir(s) == "claude" for s in ("ekrandaki soruyu anlat", "bu nasıl kullanılır", "burada ne yapmam lazım",
+                                               "bunu nasıl yapıcam"))
+assert yonlendir("ekranı anlat") == "ekran" and yonlendir("nasılsın") == "yerel"
+print("tamam anlat")
