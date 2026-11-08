@@ -28,6 +28,10 @@ Aç: masaüstündeki **Kanzi v2** kısayolu (ya da `python kanzi_v2.py`).
 - **Tepsi ve başlangıç (`tepsi.py`, ek paket yok):** saatin yanındaki simgeye sol tık Kanzi'yi gizler/gösterir; sağ tık menü: sohbet, ayarlar, kapat. Gizliyken kısayol ya da hatırlatma gelince geri gelir. Ayarlar → Başlangıç: "Windows açılınca Kanzi de açılsın" Başlangıç klasörüne kısayol koyar/kaldırır. Ses kartında Whisper aç/kapa: kapalıyken ekran kartında ~1,8 GB boşalır, Ctrl+Alt+S Google ile tanır.
 - **Öğrendiklerim:** "unutma: kahveyi şekersiz içerim", "aklında tut: …", "bundan sonra kısa cevap ver" dersen `ogrendiklerim.txt`ye yazar (Claude'suz); hem Claude hem yerel model her soruda bunlara uyar. "Neler biliyorsun" listeler; Ayarlar → Öğrendiklerim → "Aç / düzenle" ile Not Defteri'nde düzeltir/silersin.
 - **Notlarıma ekle:** ekrandaki ya da seçili konuyu ders notu olarak Obsidian vault'unun kökündeki uygun `.md`nin sonuna ekler (yoksa yeni dosya açar); `wiki/`, `raw/`, `index.md`, `log.md`ye dokunmaz.
+- **Soru çözme:** "ekrandaki soruyu çöz" → Claude adım adım çözer, son satır "Cevap: …"; uzunsa sayfalanır (Ctrl+Alt+→).
+- **Dosya bulma:** "dün indirdiğim pdf'i bul" → İndirilenler/Masaüstü/Belgeler'de arar, klasörde seçili gösterir; istersen açar. Silmez, taşımaz.
+- **Ekrana çizim (`ciz.py`):** "şurayı daire içine al", "okla göster", "altını çiz" → Kanzi'nin renginde, ışımalı işaret birkaç saniye görünür; tıklamaları engellemez.
+- **Pano geçmişi:** "pano geçmişi" / "son kopyaladıklarım" → Windows'un kendi pano geçmişini (Win+V) açar; seçtiğin yapıştırılır. Kanzi panoyu okumaz, saklamaz.
 - **Müzik:** "şarkıyı geç", "önceki şarkı", "müziği durdur", "sesi kıs/aç/kapat": medya tuşlarına basar (Spotify, YouTube…).
 - **Dans:** bilgisayardan ses gelince (Core Audio ses ölçer, ek paket yok) ritimle zıplar, koltuktaysa kafa sallar; kendi konuşması sayılmaz.
 - **Mola:** 2 saat ara vermeden kullanınca (5 dk boşta kalmak mola sayılır) "kalk biraz" der; 01:00–06:00 arası 45 dakikada bir "yatsana artık" der.

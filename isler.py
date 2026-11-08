@@ -106,6 +106,16 @@ def tusa_bas(tus, kez=1):
         user32.keybd_event(tus, 0, 3, 0)  # + KEYUP
 
 
+PANO = re.compile(r"^(?:(?:kanzi|kanka)\s+)?(pano\w*\s+(geçmiş\w*|göster|aç)|kopyaladık\w*\s+(göster|listele|neler)|"
+                  r"son\s+kopyaladık\w*|pano\s+geçmişi)")
+
+
+def pano_gecmisi():
+    """Win+V: Windows'un pano geçmişi açılır; seçilen, odaktaki kutuya yapıştırılır."""
+    for v, f in ((0x5B, 0), (0x56, 0), (0x56, 2), (0x5B, 2)):
+        user32.keybd_event(v, 0, f, 0)
+
+
 # ---------- öğrendiklerim: Mert'in kalıcı tercihleri ----------
 OGREN = re.compile(r"^(?:(?:kanzi|kanka)[\s,]+)?(?:bunu\s+)?(?:unutma|aklında\s+(?:tut|olsun)|şunu\s+bil)\s*[:,]?\s*(.+)$",
                    re.I | re.S)

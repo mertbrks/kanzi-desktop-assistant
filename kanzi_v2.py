@@ -128,6 +128,14 @@ görüntüsüyle sıradaki adımı isteyeceğiz. Görev tamamlandıysa HEDEF yaz
 dosyaları (ör. "Algo and Data.md" algoritma dersi). Ekrandaki ya da seçili konuyu Türkçe, başlıklı, maddeli kısa ders
 notu olarak konuya uyan kök dosyanın SONUNA ekle (PowerShell Add-Content -Encoding utf8; dosyayı silme, üzerine yazma);
 uyan yoksa kökte konu adıyla yeni .md aç. wiki/, raw/, index.md, log.md, CLAUDE.md dosyalarına DOKUNMA.
+Ekrandaki bir soruyu (matematik, ödev, test) çözmen istenirse 3 cümle sınırı yok: her adımı ayrı satırda kısa yaz
+(markdown yok, formülü düz yazıyla: x^2, kök(2)), sonucu en son satırda "Cevap: …" diye ver.
+Dosya bulman istenirse ("dün indirdiğim pdf"): Downloads, Desktop, Documents altında Get-ChildItem -Recurse ile
+tarih/uzantı/ada göre ara (en yeni önce), bulduğunu explorer.exe "/select,<yol>" ile klasörde seçili göster,
+açılması istendiyse Start-Process ile aç; adını ve yerini söyle. Hiçbir dosyayı silme, taşıma.
+Ekranda bir yeri işaretlemen, daire içine alman, okla göstermen ya da altını çizmen istenirse ekran görüntüsünde yeri
+bul ve Start-Process "{pyw}" -ArgumentList '"{klasor}\\ciz.py" daire X Y R' çalıştır (beklemez, 6 sn görünür;
+"ok X1 Y1 X2 Y2", "alti X1 X2 Y", birkaç şekil için aralarına " ; "). Koordinatlar ekran görüntüsü pikseli.
 Bitince ne yaptığını söyle."""
 
 
@@ -736,8 +744,8 @@ class Kanzi:
         if on and not self.kendi_penceresi(on):
             self.yazma_hedefi = on
 
-    def dikte_yaz(self, metin):
-        """Söyleneni aynen, odaktaki kutuya yazar (Sesli Komut gibi; Claude'a gitmez)."""
+    def dikte_yaz(self, metin, eylem=None, soz=None):
+        """Söyleneni aynen, odaktaki kutuya yazar (Sesli Komut gibi; Claude'a gitmez). eylem: yazmak yerine yapılacak."""
         on = user32.GetForegroundWindow()
         hedef = self.yazma_hedefi if self.kendi_penceresi(on) else on  # kutu/sohbet öndeyse önceki pencere
 
@@ -745,8 +753,8 @@ class Kanzi:
             time.sleep(0.3)  # komut kutusu kapansın, odak geri dönsün
             if hedef and user32.GetForegroundWindow() != hedef and not isler.one_getir(hedef):
                 return self.q.put(("baloncuk", "Yazacağım pencereyi öne alamadım, kutuya tıklayıp tekrar söyle."))
-            isler.klavyeye_yaz(metin)
-            self.q.put(("baloncuk", random.choice(("Yazdım.", "Tamam, yazdım.", "Yazdım, Enter'a sen bas."))))
+            eylem() if eylem else isler.klavyeye_yaz(metin)
+            self.q.put(("baloncuk", soz or random.choice(("Yazdım.", "Tamam, yazdım.", "Yazdım, Enter'a sen bas."))))
 
         threading.Thread(target=yaz, daemon=True).start()
 
@@ -1180,6 +1188,8 @@ class Kanzi:
         if medya:
             isler.tusa_bas(*medya[1:])
             return self.soyle(isler.CEVAP[medya[0]])
+        if isler.PANO.search(re.sub(r"[^\w\s]", "", metin.lower())):  # Windows'un kendi pano geçmişi (Win+V)
+            return self.dikte_yaz("", isler.pano_gecmisi, "Seç, yapıştırsın. Kapalıysa çıkan pencereden aç.")
         yer = yer_komutu(metin)
         if yer:
             return self.otur() if yer == "otur" else self.kalk()
@@ -1301,8 +1311,9 @@ class Kanzi:
             self.durum = "bos"
             raise
         sistem = SISTEM.format(ekran=ekran, x=fx, y=fy, klasor=KLASOR,
-                               py=os.path.join(os.path.dirname(sys.executable), "python.exe"))
-        sistem += isler.ogrendiklerim_metni(OGRENDIKLERIM)
+                               py=os.path.join(os.path.dirname(sys.executable), "python.exe"),
+                               pyw=os.path.join(os.path.dirname(sys.executable), "pythonw.exe"))
+        sistem +=isler.ogrendiklerim_metni(OGRENDIKLERIM)
         threading.Thread(target=self._claude, args=(istek, araclar, sistem, self.istek_no), daemon=True).start()
 
     def _claude(self, istek, araclar, sistem, no):

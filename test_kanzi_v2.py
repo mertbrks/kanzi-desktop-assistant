@@ -124,7 +124,8 @@ assert dikte_komutu("yaz: yarın 3'te görüşelim") == "yarın 3'te görüşeli
 assert dikte_komutu("Aynen yaz merhaba hocam") == "merhaba hocam"
 assert dikte_komutu("yaz bakalım bir şiir") is None and dikte_komutu("arama kutusuna kanzi yaz") is None
 from kanzi_v2 import SISTEM
-assert "tikla_yaz.py" in SISTEM.format(ekran="e", x=1, y=2, klasor="K", py="P")
+_s = SISTEM.format(ekran="e", x=1, y=2, klasor="K", py="P", pyw="W")
+assert "tikla_yaz.py" in _s and '"W" -ArgumentList \'"K\\ciz.py" daire' in _s, _s[-600:]
 print("tamam dikte")
 
 import isler
@@ -138,3 +139,22 @@ assert isler.ogrendiklerim_metni(_d) == ""
 open(_d, "w", encoding="utf-8").write("a\n\nb\n")
 assert isler.ogrendiklerim_metni(_d).endswith("- a\n- b")
 print("tamam öğren")
+
+import ciz
+assert ciz.sekiller(["daire", "10", "20"]) == [("daire", [10.0, 20.0])]
+assert ciz.sekiller(["daire 1 2 30 ; ok 0 0 5 5", ";", "alti", "1", "9", "4"]) == [
+    ("daire", [1.0, 2.0, 30.0]), ("ok", [0.0, 0.0, 5.0, 5.0]), ("alti", [1.0, 9.0, 4.0])]
+for _bozuk in (["ok", "1", "2"], ["kare", "1", "2"], ["daire", "a", "b"]):
+    try:
+        ciz.sekiller(_bozuk)
+        raise AssertionError(_bozuk)
+    except ValueError:
+        pass
+from yerel import yonlendir
+assert all(yonlendir(s) == "claude" for s in ("bu soruyu çöz", "ekrandaki soruyu adım adım çöz",
+                                               "şurayı daire içine al", "altını çiz", "dün indirdiğim pdf'i bul"))
+print("tamam çiz")
+_im, _sol, _ust = ciz.ciz_resmi(ciz.sekiller(["daire 100 100 50"]))
+assert (_sol, _ust) == (10, 10) and _im.size == (180, 180) and _im.getextrema()[3][1] == 255
+assert isler.PANO.search("pano geçmişi") and not isler.PANO.search("panodaki yazıyı çevir")
+print("tamam çizim/pano")

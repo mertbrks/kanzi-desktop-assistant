@@ -39,6 +39,7 @@ CLAUDE_KELIMELER = re.compile(
     r"e-?posta\w*|mail\w*|outlook|word|excel|powerpoint|tablo\w*|belge\w*|dosya\w*|klasör\w*|"
     r"vs\s*code|kod\w*|terminal\w*|not\s+defteri\w*|chrome|tarayıcı\w*|site\w*|uygulama\w*|program\w*|"
     r"takvim\w*|hatırlat\w*|ayarla\w*|bilgisayar\w*|masaüstü\w*|proje\w*|kanzi\s+v2|vault|obsidian|"
+    r"çöz\w*|çiz\w*|işaretle\w*|daire\w*|pdf\w*|bul\b|bul(ur|sana|abilir)\w*|"
     r"göndereyim|evet|onayl\w*|devam\s+et|tamam\s+yap)\b",
     re.I)
 
