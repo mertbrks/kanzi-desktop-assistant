@@ -1,0 +1,8 @@
+# Kanzi v2'nin OpenJarvis ayarı (yerel.py OPENJARVIS_CONFIG ile verir)
+[analytics]
+enabled = false          # OpenJarvis ekibine kullanım verisi gönderme
+choice_recorded = true
+
+[server]
+host = "127.0.0.1"
+agent = "simple"         # araçsız: yerel model komut çalıştıramaz, web'e çıkamaz

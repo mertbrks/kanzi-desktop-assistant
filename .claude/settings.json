@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "PowerShell|Bash",
+        "hooks": [{ "type": "command", "command": "python bekci.py" }]
+      }
+    ]
+  }
+}
