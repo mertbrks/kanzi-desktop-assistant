@@ -694,6 +694,9 @@ class Kanzi:
             return
         p = self.sohbet_pen = tk.Toplevel(self.kok, bg=g.ZEMIN, padx=16, pady=14)
         p.title("Kanzi v2 — Sohbet")
+        p.update_idletasks()
+        if self.gorunmez:  # ekran okuyunca (OCR / Claude) sohbet penceresi "ekrandaki şey" sanılmasın
+            user32.SetWindowDisplayAffinity(ctypes.c_void_p(user32.GetParent(p.winfo_id())), 0x11)
         p.attributes("-topmost", True, "-alpha", 0.97)
         p.minsize(420, 360)
         ikon = os.path.join(KLASOR, "kanzi_v2_mavi.ico")
@@ -973,13 +976,13 @@ class Kanzi:
             if isler.turkce_mi(secili):  # Türkçe -> İngilizce yerelde iyi; tersinde 4B model Türkçeyi bozuyor: Claude
                 if self.ayar["yerel"] and self.yerel.durum == "hazir":
                     return self.sor_yerel("Translate the following Turkish text into English. Output only the English "
-                                          f"translation.\n\n{secili[:3000]}", sesli=False)
+                                          f"translation.\n\n{secili[:3000]}", sesli=False, baglam=False)
                 return self.sor(f"Şu metni İngilizceye çevir, yalnızca çeviriyi yaz:\n{secili[:3000]}", ONAY_YOK, False)
             return self.sor(f"Şu metni Türkçeye çevir, yalnızca çeviriyi yaz:\n{secili[:3000]}", ONAY_YOK, False)
         if self.ayar["yerel"] and self.yerel.durum == "hazir":  # Mert istedi: açıklama yerelde (anında, limitsiz)
             self.son_soru = (f"Şu metni kısaca açıkla:\n{secili[:3000]}" if secili
                              else "İmlecin olduğu yerde ne var? Kısaca açıkla.")
-            return self.sor_yerel(self.son_soru, sesli=False, ekran=not secili)
+            return self.sor_yerel(self.son_soru, sesli=False, ekran=not secili, baglam=False)
         istek = ("İmlecin olduğu yerde ne görüyorsan kısaca açıkla ve bir sonraki adımı öğret (HEDEF ile göster)."
                  + (f"\nKullanıcının seçtiği metin (pano):\n{secili[:4000]}" if secili else ""))
         self.sor(istek, ONAY_YOK, sesli=False)
@@ -1079,7 +1082,9 @@ class Kanzi:
         self.son_kare = None  # yeniden basılsın
         return ekran, fx - self.koken[0], fy - self.koken[1]
 
-    def sor_yerel(self, metin, sesli, onek="", ekran=False):
+    def sor_yerel(self, metin, sesli, onek="", ekran=False, baglam=None):
+        """baglam: eski konuşma da gitsin mi; ekran sorusunda ve açıkla/çevir'de gitmez, yoksa eski konuyu anlatıyor."""
+        baglam = not ekran if baglam is None else baglam
         if self.durum in ("dusunuyor", "dinliyor", "cozuyor"):
             self.soyle("Bi dur ya, önceki iş bitmedi (iptal: Ctrl+Alt+X).")
             return
@@ -1100,7 +1105,7 @@ class Kanzi:
                 except (OSError, subprocess.SubprocessError):  # OCR olmadı: Claude'a geç
                     return self.q.put(("claudea", (no, metin, sesli)))
             try:
-                cevap = self.yerel.sor(soru, lambda p: self.q.put(("parca", (no, p))),
+                cevap = self.yerel.sor(soru, lambda p: self.q.put(("parca", (no, p))), gecmis=baglam,
                                        iptal=lambda: no != self.istek_no)
             except OSError:  # sunucu düştü ya da cevap vermedi: Claude'a geç
                 if not self.yerel.hazir_mi():

@@ -165,10 +165,10 @@ class Yerel:
         self.gecmis = (self.gecmis + [{"role": "user", "content": soru},
                                       {"role": "assistant", "content": cevap}])[-12:]
 
-    def sor(self, soru, parca, iptal=lambda: False):
+    def sor(self, soru, parca, iptal=lambda: False, gecmis=True):
         """Akışlı sorar; her yazı parçası için parca(metin) çağrılır. Tam cevabı döner. Hata olursa OSError."""
         govde = {"model": MODEL, "stream": True, "temperature": 0.4, "max_tokens": 400,
-                 "messages": [{"role": "system", "content": SISTEM}, *self.gecmis,
+                 "messages": [{"role": "system", "content": SISTEM}, *(self.gecmis if gecmis else []),
                               {"role": "user", "content": soru}]}
         istek = urllib.request.Request(f"{ADRES}/v1/chat/completions", data=json.dumps(govde).encode(),
                                        headers={"Content-Type": "application/json"})
