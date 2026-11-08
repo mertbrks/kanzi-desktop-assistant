@@ -334,6 +334,7 @@ class Kanzi:
                      + ("" if self.ayar["sesli"] else " (sessiz moddayım)"))
         self.yazi_bitis = time.time() + 8
         self.sayfalar, self.sayfa = [], 0  # uzun cevabın sayfaları ve gösterilen
+        self.kalici = False  # anlatım baloncuğu Ctrl+Alt+→ ile kapanana kadar durur
         self.sohbet, self.cevap_bekleniyor, self.sohbet_pen = sohbet_oku(), False, None
         self.yazma_hedefi = None  # dikte edilen yazının gideceği pencere
         self.goz, self.etraf, self.etraf_zaman = [0.0, 0.0], None, 0.0  # bakış (yumuşatılmış) ve rastgele bakış
@@ -472,8 +473,12 @@ class Kanzi:
         elif tur == "ayarlar":
             self.ayarlar_penceresi()
         elif tur in ("ileri", "geri") and self.sayfalar:  # baloncuk kapanmış olsa da son cevap geri gelir
-            self.sayfaya_git(self.sayfa + (1 if tur == "ileri" else -1) if time.time() < self.yazi_bitis
-                             else self.sayfa)
+            if time.time() >= self.yazi_bitis:  # kapanmıştı: son gösterilen sayfa geri gelsin
+                self.sayfaya_git(self.sayfa)
+            elif tur == "ileri" and self.sayfa == len(self.sayfalar) - 1:
+                self.kalici, self.yazi_bitis = False, 0.0  # son sayfada ileri: anlatım bitti, kapat
+            else:
+                self.sayfaya_git(self.sayfa + (1 if tur == "ileri" else -1))
         elif tur == "sohbet":
             self.sohbet_penceresi()
         elif tur == "iptal":
@@ -561,7 +566,7 @@ class Kanzi:
         else:
             if self.konusmaci.caliyor:
                 durum, halka = "konusuyor", abs(math.sin(t * 11)) * (0.6 + 0.4 * math.sin(t * 3.7))
-            yazi = self.yazi if t < self.yazi_bitis else ""
+            yazi = self.yazi if t < self.yazi_bitis or self.hedef else ""  # gösterirken tarif de dursun
         if ifade == "normal" and durum == "bos" and not yazi and t - self.fare_zaman > 90:
             ifade = "uykulu"  # fareye uzun süre dokunulmadı
         kirp = (t % 4) < 0.12 and durum != "dinliyor"  # dört saniyede bir göz kırpar
@@ -670,7 +675,7 @@ class Kanzi:
     def sayfaya_git(self, i):
         self.sayfa = max(0, min(i, len(self.sayfalar) - 1))
         self.yazi = self.sayfalar[self.sayfa]
-        self.yazi_bitis = time.time() + 4 + len(self.yazi) / 15  # okuma süresi kadar kalsın
+        self.yazi_bitis = float("inf") if self.kalici else time.time() + 4 + len(self.yazi) / 15  # okuma süresi
 
     def yuz(self, ifade, sure):
         self.ifade, self.ifade_bitis = ifade, time.time() + sure
@@ -721,7 +726,9 @@ class Kanzi:
             self.yuz("bikkin", 2.0)
         if self.cevap_bekleniyor:  # sorulan şeyin cevabı (ya da hatası) sohbet geçmişine
             self.sohbete_yaz("kanzi", metin)
-        self.sayfalar = sayfala(metin)  # uzun cevap kesilmesin: sayfa sayfa, okuma süresince sırayla
+        self.sayfalar = sayfala(metin)  # uzun cevap kesilmesin: sayfa sayfa
+        # anlatım (çok sayfa, çok satır ya da uzun) Mert Ctrl+Alt+→ basana kadar kalır; kısa söz kendiliğinden kaybolur
+        self.kalici = len(self.sayfalar) > 1 or metin.count("\n") >= 2 or len(metin) > 140
         self.sayfaya_git(0)
         self.akan_goster = ""
 

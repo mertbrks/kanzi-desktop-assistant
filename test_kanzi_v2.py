@@ -166,3 +166,13 @@ assert all(yonlendir(s) == "claude" for s in ("ekrandaki soruyu anlat", "bu nas�
                                                "bunu nasıl yapıcam"))
 assert yonlendir("ekranı anlat") == "ekran" and yonlendir("nasılsın") == "yerel"
 print("tamam anlat")
+
+from types import SimpleNamespace
+from kanzi_v2 import Kanzi
+_k = SimpleNamespace(cevap_bekleniyor=False, yuz=lambda *a: None, kalici=False)
+_k.sayfaya_git = lambda i: Kanzi.sayfaya_git(_k, i)
+Kanzi.soyle(_k, "Tamam, aklımda.")
+assert not _k.kalici and _k.yazi_bitis < 1e12  # kısa söz kendiliğinden kaybolur
+Kanzi.soyle(_k, "Soru şunu istiyor.\nÖnce x'i bul.\nSonra çarp.\nCevap: 96")
+assert _k.kalici and _k.yazi_bitis == float("inf")  # anlatım → basılana kadar durur
+print("tamam kalıcı")
