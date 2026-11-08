@@ -154,6 +154,13 @@ class Yerel:
             self.durum = "yok"
             return
         self.durum = "basliyor"
+        # Port cevap vermiyor ama eski sunucunun kaydı duruyorsa OpenJarvis açılmayı reddediyor ("Another server is
+        # already registered"): Windows o PID'i başka programa (ör. VS Code) verince "hâlâ çalışıyor" sanıyor.
+        for ad in ("server.pid", "server.json"):
+            try:
+                os.remove(os.path.join(os.path.expanduser("~"), ".openjarvis", ad))
+            except OSError:
+                pass
         ortam = dict(os.environ, PYTHONIOENCODING="utf-8",
                      OPENJARVIS_CONFIG=os.path.join(os.path.dirname(os.path.abspath(__file__)), "openjarvis.toml"))
         gunluk = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "openjarvis.log"), "a",
