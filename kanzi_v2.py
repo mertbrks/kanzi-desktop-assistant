@@ -138,7 +138,7 @@ Dosya bulman istenirse ("dün indirdiğim pdf"): Downloads, Desktop, Documents a
 tarih/uzantı/ada göre ara (en yeni önce), bulduğunu explorer.exe "/select,<yol>" ile klasörde seçili göster,
 açılması istendiyse Start-Process ile aç; adını ve yerini söyle. Hiçbir dosyayı silme, taşıma.
 Ekranda bir yeri işaretlemen, daire içine alman, okla göstermen ya da altını çizmen istenirse ekran görüntüsünde yeri
-bul ve Start-Process "{pyw}" -ArgumentList '"{klasor}\\ciz.py" daire X Y R' çalıştır (beklemez, 6 sn görünür;
+bul ve Start-Process "{pyw}" -ArgumentList '"{klasor}\\ciz.py" daire X Y R' çalıştır (beklemez; Mert anlatımı kapatana kadar kalır;
 "ok X1 Y1 X2 Y2", "alti X1 X2 Y", birkaç şekil için aralarına " ; "). Koordinatlar ekran görüntüsü pikseli.
 Bitince ne yaptığını söyle."""
 
@@ -477,6 +477,7 @@ class Kanzi:
                 self.sayfaya_git(self.sayfa)
             elif tur == "ileri" and self.sayfa == len(self.sayfalar) - 1:
                 self.kalici, self.yazi_bitis = False, 0.0  # son sayfada ileri: anlatım bitti, kapat
+                self.cizimleri_sil()
             else:
                 self.sayfaya_git(self.sayfa + (1 if tur == "ileri" else -1))
         elif tur == "sohbet":
@@ -1193,7 +1194,18 @@ class Kanzi:
         self.sor(istek, ONAY_YOK, sesli=False)
 
     # ---------- Claude ----------
+    @staticmethod
+    def cizimleri_sil():
+        """ciz.py'nin ekrandaki işaretlerini kapatır (anlatım bitti ya da yeni istek)."""
+        for _ in range(20):  # takılan pencere Kanzi'yi döngüde tutmasın
+            h = user32.FindWindowW(None, "KanziCizim")
+            if not h:
+                break
+            user32.PostMessageW(h, 0x10, 0, 0)  # WM_CLOSE: Tk pencereyi yok eder
+            user32.SetWindowTextW(h, "")  # aynı pencereyi tekrar bulmasın
+
     def iptal(self):
+        self.cizimleri_sil()
         self.iptal_edildi = True
         self.istek_no += 1  # yoldaki parçalar ve cevap yok sayılır
         self._oldur()
@@ -1210,6 +1222,7 @@ class Kanzi:
     def istek(self, metin, sesli):
         """Kullanıcının yazdığı/söylediği isteği yönlendirir: basit olan yerele, gerisi Claude'a."""
         self.sohbete_yaz("sen", metin)
+        self.cizimleri_sil()  # önceki anlatımın işaretleri yeni soruda kalmasın
         dikte = isler.dikte_komutu(metin)
         if dikte:
             return self.dikte_yaz(dikte)

@@ -3,7 +3,7 @@
     python ciz.py daire X Y [R]          (X, Y: ekran görüntüsü pikseli; R yarıçap, varsayılan 60)
     python ciz.py ok X1 Y1 X2 Y2         (X1,Y1'den X2,Y2'ye ok; ucu X2,Y2)
     python ciz.py alti X1 X2 Y           (X1..X2 arası Y hizasında altını çiz)
-    birden çok şekil: "daire 100 200 ; ok 50 50 100 200"   --sure 8 (saniye, varsayılan 6)
+    birden çok şekil: "daire 100 200 ; ok 50 50 100 200"   --sure 8 (saniye; yoksa Kanzi kapatana kadar, en çok 15 dk)
 """
 import ctypes
 import json
@@ -103,6 +103,7 @@ def goster(liste, sure):
         pass
     im, sol, ust = ciz_resmi(liste, ctypes.windll.shcore.GetScaleFactorForDevice(0) / 100)
     k = tk.Tk()
+    k.title("KanziCizim")  # Kanzi bu adla bulup kapatır
     k.overrideredirect(True)
     k.attributes("-topmost", True)
     k.geometry("1x1+0+0")
@@ -117,7 +118,7 @@ def goster(liste, sure):
 
 if __name__ == "__main__":
     arg = sys.argv[1:]
-    sure = 6.0
+    sure = 900.0  # Kanzi baloncuk kapanınca "KanziCizim" pencerelerini kapatır; bu yalnız emniyet
     if "--sure" in arg:
         i = arg.index("--sure")
         sure = float(arg[i + 1])
