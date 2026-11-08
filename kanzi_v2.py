@@ -1285,5 +1285,11 @@ class Kanzi:
 if __name__ == "__main__":
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     kilit = k32.CreateMutexW(None, False, "KanziV2TekKopya")
-    if ctypes.get_last_error() != 183:  # ERROR_ALREADY_EXISTS: zaten açık, ikinci kopya açılmasın
+    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS: zaten açık, ikinci kopya açılmasın ama sessizce de kaybolmasın
+        print(time.strftime("%Y-%m-%d %H:%M:%S"), "ikinci kopya: zaten açık, çıktım", flush=True)
+        user32.MessageBoxW(None, "Kanzi zaten açık.\nKapatıp yeniden açmak için Ctrl+Alt+Q, sonra tekrar aç.",
+                           "Kanzi v2", 0x40 | 0x40000)  # bilgi simgesi, en üstte
+    else:
+        print(time.strftime("%Y-%m-%d %H:%M:%S"), f"açıldı (pid {os.getpid()})", flush=True)
         Kanzi().kok.mainloop()
+        print(time.strftime("%Y-%m-%d %H:%M:%S"), "kapandı", flush=True)
