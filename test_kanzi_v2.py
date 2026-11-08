@@ -124,7 +124,7 @@ assert dikte_komutu("yaz: yarın 3'te görüşelim") == "yarın 3'te görüşeli
 assert dikte_komutu("Aynen yaz merhaba hocam") == "merhaba hocam"
 assert dikte_komutu("yaz bakalım bir şiir") is None and dikte_komutu("arama kutusuna kanzi yaz") is None
 from kanzi_v2 import SISTEM
-_s = SISTEM.format(ekran="e", x=1, y=2, klasor="K", py="P", pyw="W")
+_s = SISTEM.format(ekran="e", x=1, y=2, gen=10, boy=20, klasor="K", py="P", pyw="W")
 assert "tikla_yaz.py" in _s and '"W" -ArgumentList \'"K\\ciz.py" daire' in _s, _s[-600:]
 print("tamam dikte")
 

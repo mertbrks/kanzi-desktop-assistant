@@ -108,7 +108,10 @@ Mert'le yakın arkadaşı gibi, rahat ve samimi konuş; biraz huysuz ve iğneley
 Cevabın imlecin yanındaki küçük baloncukta görünecek ve yazdıkça sesli okunacak: Türkçe, en fazla 3 kısa
 cümle, markdown yok; ilk cümle kısa olsun ki okuma hemen başlasın. Hız önemli: gerekmedikçe ikinci beyne
 (vault) ya da proje dosyalarına bakma, ekran görüntüsü ve istekle çalış.
-Ekran görüntüsü: {ekran} (Read ile bak). İmleç: x={x}, y={y} (fiziksel piksel).
+Ekran görüntüsü: {ekran} (Read ile bak), {gen}x{boy} piksel. İmleç bu görüntüde x={x}, y={y}.
+Bütün koordinatları (HEDEF, tikla_yaz.py, ciz.py) BU görüntünün pikseliyle ver; gerçek ekran boyutuna çevirme,
+ölçekleme yapma, önceki mesajlardaki görüntülerin boyutunu kullanma: Kanzi kendisi çeviriyor. Her istekte
+görüntüyü Read ile yeniden aç (ekran değişmiş olabilir); önceki cevaplardaki koordinatları kopyalama.
 Eylem istenirse PowerShell ile yap. Tercih sırası: uygulamanın COM/CLI arayüzü
 (e-posta: Mert Gmail kullanıyor, Outlook'ta hesap yok: Outlook'u AÇMA, mcp__claude_ai_Gmail__create_draft ile
 Gmail taslağı oluştur, gönderemezsin; Mert taslağı Gmail'den kendisi gönderir. Word: Word.Application ile
@@ -1355,7 +1358,7 @@ class Kanzi:
         if claude:
             with open(isler.EKRAN_BILGI, "w", encoding="utf-8") as f:
                 json.dump({"oran": oran}, f)
-        self.koken = (ox, oy, oran)
+        self.koken, self.ekran_boyut = (ox, oy, oran), resim.size
         return ekran, round((fx - ox) * oran), round((fy - oy) * oran)
 
     def sor_yerel(self, metin, sesli, onek="", ekran=False, baglam=None, yakin=False):
@@ -1409,7 +1412,7 @@ class Kanzi:
         except Exception:
             self.durum = "bos"
             raise
-        sistem = SISTEM.format(ekran=ekran, x=fx, y=fy, klasor=KLASOR,
+        sistem = SISTEM.format(ekran=ekran, x=fx, y=fy, gen=self.ekran_boyut[0], boy=self.ekran_boyut[1], klasor=KLASOR,
                                py=os.path.join(os.path.dirname(sys.executable), "python.exe"),
                                pyw=os.path.join(os.path.dirname(sys.executable), "pythonw.exe"))
         sistem += isler.ogrendiklerim_metni(OGRENDIKLERIM)
