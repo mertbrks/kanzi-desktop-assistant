@@ -3,6 +3,7 @@ import ctypes
 import ctypes.wintypes as wt
 import datetime
 import re
+import time
 
 user32 = ctypes.windll.user32
 
@@ -103,6 +104,50 @@ def tusa_bas(tus, kez=1):
     for _ in range(kez):
         user32.keybd_event(tus, 0, 1, 0)  # KEYEVENTF_EXTENDEDKEY
         user32.keybd_event(tus, 0, 3, 0)  # + KEYUP
+
+
+# ---------- dikte: söyleneni aynen yaz ----------
+DIKTE = re.compile(r"^(?:(?:kanzi|kanka)[\s,]+)?(?:(?:aynen|olduğu\s+gibi)\s+yaz|dikte(?:\s+et)?|yaz)\s*[:,]\s*(.+)$",
+                   re.I | re.S)
+_DIKTE_SADE = re.compile(r"^(?:(?:kanzi|kanka)[\s,]+)?(?:aynen|olduğu\s+gibi)\s+yaz\s+(.+)$", re.I | re.S)
+
+
+def dikte_komutu(metin):
+    """'yaz: yarın görüşürüz' / 'aynen yaz yarın görüşürüz' -> yazılacak metin; değilse None.
+    Düz 'yaz' iki nokta/virgülsüz sayılmaz: 'yaz bakalım bir şiir' Claude'a gitsin."""
+    m = DIKTE.match(metin.strip()) or _DIKTE_SADE.match(metin.strip())
+    return m.group(1).strip() if m and m.group(1).strip() else None
+
+
+class _KI(ctypes.Structure):
+    _fields_ = [("vk", wt.WORD), ("scan", wt.WORD), ("flags", wt.DWORD), ("time", wt.DWORD),
+                ("extra", ctypes.c_void_p)]
+
+
+class _GIRDI(ctypes.Structure):
+    _fields_ = [("type", wt.DWORD), ("ki", _KI), ("pad", ctypes.c_byte * 8)]
+
+
+def klavyeye_yaz(metin):
+    """Odaktaki kutuya harf harf yazar (Unicode: Türkçe harfler sorunsuz). Satır sonu boşluk olur: Enter gönderebilir."""
+    for v in (0x10, 0x11, 0x12, 0x5B):  # kısayoldan basılı kalmış Shift/Ctrl/Alt/Win bırakılsın
+        user32.keybd_event(v, 0, 2, 0)
+    for ch in re.sub(r"\s*\n\s*", " ", metin):
+        b = ch.encode("utf-16-le")  # emoji gibi iki parçalı harfler iki kod olarak gider
+        for kod in (int.from_bytes(b[i:i + 2], "little") for i in range(0, len(b), 2)):
+            for bayrak in (4, 6):  # KEYEVENTF_UNICODE, + KEYUP
+                g = _GIRDI(1, _KI(0, kod, bayrak, 0, None))
+                user32.SendInput(1, ctypes.byref(g), ctypes.sizeof(g))
+        time.sleep(0.004)
+
+
+def one_getir(hwnd):
+    """Pencereyi öne alır. Kanzi'nin kendi kutusu/penceresi öndeyken çağrılır, Windows buna izin verir."""
+    if not hwnd or not user32.IsWindow(hwnd):
+        return False
+    user32.SetForegroundWindow(hwnd)
+    time.sleep(0.15)
+    return user32.GetForegroundWindow() == hwnd
 
 
 # ---------- bilgisayar sesi (dans için) ----------

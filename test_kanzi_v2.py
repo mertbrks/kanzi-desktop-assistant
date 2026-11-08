@@ -119,3 +119,10 @@ from yerel import imlece_uzaklik
 u = lambda x, y, sag: imlece_uzaklik(x, y, sag, 500, 300)  # imleç (500, 300)
 assert u(100, 295, 900) < u(100, 330, 900) < u(600, 295, 900)  # altındaki satır < alttaki satır < yan sütun
 print("tamam imleç")
+from isler import dikte_komutu
+assert dikte_komutu("yaz: yarın 3'te görüşelim") == "yarın 3'te görüşelim"
+assert dikte_komutu("Aynen yaz merhaba hocam") == "merhaba hocam"
+assert dikte_komutu("yaz bakalım bir şiir") is None and dikte_komutu("arama kutusuna kanzi yaz") is None
+from kanzi_v2 import SISTEM
+assert "tikla_yaz.py" in SISTEM.format(ekran="e", x=1, y=2, klasor="K", py="P")
+print("tamam dikte")

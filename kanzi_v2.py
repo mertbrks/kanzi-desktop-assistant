@@ -61,7 +61,7 @@ VARSAYILAN = {"sesli": True, "ses": "Ahmet", "yetki": "is", "yerel": True, "renk
               "oturuyor": False, "hatirlatmalar": []}  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
 KISAYOLLAR = (("Ctrl+Alt+Space", "yazarak komut (\"yeni konu\" sıfırlar)"), ("Ctrl+Alt+S", "konuş: bas, konuş, tekrar bas"),
               ("Ctrl+Alt+A", "seçili metni / ekranı açıkla"), ("Ctrl+Alt+→ / ←", "uzun cevapta sonraki / önceki sayfa"),
-              ("Ctrl+Alt+C", "sohbet penceresi (geçmiş + yaz)"), ("Ctrl+Alt+T", "seçili metni çevir"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
+              ("Ctrl+Alt+C", "sohbet penceresi (geçmiş + yaz)"), ("\"yaz: …\"", "söylediğini aynen seçili kutuya yazar"), ("Ctrl+Alt+T", "seçili metni çevir"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
               ("Ctrl+Alt+O", "ayarlar"), ("Ctrl+Alt+X", "iptal"), ("Ctrl+Alt+Q", "kapat"))
 
 
@@ -107,6 +107,12 @@ Gmail taslağı oluştur, gönderemezsin; Mert taslağı Gmail'den kendisi gönd
 tablo/biçim; VS Code: `code` komutu ve dosya düzenleme; Not Defteri: dosyaya yaz ve aç), sonra
 WScript.Shell SendKeys, en son fare tıklaması. Kullanıcı açıkça "gönder" demedikçe e-postayı GÖNDERME,
 taslak olarak göster. Uzun sürecek komutu arka plana atma, kısa tut.
+Ekrandaki bir kutuya yazman istenirse ("arama kutusuna X yaz", "şu mesaja cevap yaz"): kutuyu ekran
+görüntüsünde bul, sonra PowerShell'de & "{py}" "{klasor}\\tikla_yaz.py" X Y "yazı" çalıştır (X, Y ekran
+görüntüsü pikseli, kutunun ortası; tıklar, kutudaki yazının sonuna ekler, Enter'a basmaz; kutudaki eski yazının
+yerine yazılacaksa sona --degistir ekle). Yazı tırnak içeriyorsa önce UTF-8 dosyaya yaz ve "yazı" yerine
+--dosya yol ver. Panoyu (kopyala-yapıştır) KULLANMA, Mert'in panosu bozulur; dosyayı okumana gerek yok. Mert yazıyı verdiyse aynen yaz; yazmayı sana bıraktıysa kısa, doğal yaz.
+Kutuyu bulamazsan tahminle tıklama, söyle. Göndermek için Enter'a ancak Mert onaylarsa bas.
 Göndermek gibi geri alınamaz bir adımdan önce dur, taslağı göster ve "Göndereyim mi?" diye sor;
 kullanıcı sonraki mesajda onaylarsa yap. Dosya silme, sistem ayarı değiştirme, program kurma yapma.
 Öğretme: kullanıcı bir şeyin nasıl yapıldığını soruyorsa ya da açıklama istiyorsa işi kendin yapma.
@@ -304,6 +310,7 @@ class Kanzi:
         self.yazi_bitis = time.time() + 8
         self.sayfalar, self.sayfa = [], 0  # uzun cevabın sayfaları ve gösterilen
         self.sohbet, self.cevap_bekleniyor, self.sohbet_pen = sohbet_oku(), False, None
+        self.yazma_hedefi = None  # dikte edilen yazının gideceği pencere
         self.goz, self.etraf, self.etraf_zaman = [0.0, 0.0], None, 0.0  # bakış (yumuşatılmış) ve rastgele bakış
         self.fare, self.fare_zaman = (0, 0), time.time()
         self.ifade, self.ifade_bitis = "normal", 0.0
@@ -412,6 +419,8 @@ class Kanzi:
                 self.yuz("kizgin", 1.6)
             else:
                 self.yuz(random.choice(("saskin", "saskin", "suphe")), 0.7)  # çağrılınca irkilir ya da süzer
+        if tur in ("komut", "sohbet"):
+            self.yazma_hedefi_al()  # "yaz: ..." Kanzi'nin kutusuna değil, önceki pencereye yazılsın
         if tur == "komut":
             self.komut_kutusu()
         elif tur == "acikla":
@@ -685,6 +694,31 @@ class Kanzi:
 
         g_.bind("<Return>", gonder)
         g_.bind("<Escape>", kapat)
+
+    # ---------- dikte ----------
+    def kendi_penceresi(self, hwnd):
+        pid = wt.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        return pid.value == os.getpid()
+
+    def yazma_hedefi_al(self):
+        on = user32.GetForegroundWindow()
+        if on and not self.kendi_penceresi(on):
+            self.yazma_hedefi = on
+
+    def dikte_yaz(self, metin):
+        """Söyleneni aynen, odaktaki kutuya yazar (Sesli Komut gibi; Claude'a gitmez)."""
+        on = user32.GetForegroundWindow()
+        hedef = self.yazma_hedefi if self.kendi_penceresi(on) else on  # kutu/sohbet öndeyse önceki pencere
+
+        def yaz():
+            time.sleep(0.3)  # komut kutusu kapansın, odak geri dönsün
+            if hedef and user32.GetForegroundWindow() != hedef and not isler.one_getir(hedef):
+                return self.q.put(("baloncuk", "Yazacağım pencereyi öne alamadım, kutuya tıklayıp tekrar söyle."))
+            isler.klavyeye_yaz(metin)
+            self.q.put(("baloncuk", random.choice(("Yazdım.", "Tamam, yazdım.", "Yazdım, Enter'a sen bas."))))
+
+        threading.Thread(target=yaz, daemon=True).start()
 
     def logo_tazele(self):
         """Logo seçili tasarımı izlesin. Değişmediyse dokunma (masaüstü simge önbelleği boşuna yenilenmesin)."""
@@ -1041,6 +1075,9 @@ class Kanzi:
     def istek(self, metin, sesli):
         """Kullanıcının yazdığı/söylediği isteği yönlendirir: basit olan yerele, gerisi Claude'a."""
         self.sohbete_yaz("sen", metin)
+        dikte = isler.dikte_komutu(metin)
+        if dikte:
+            return self.dikte_yaz(dikte)
         h = isler.hatirlatma(metin)
         if h:
             return self.hatirlat_kur(*h)
@@ -1167,7 +1204,8 @@ class Kanzi:
         except Exception:
             self.durum = "bos"
             raise
-        sistem = SISTEM.format(ekran=ekran, x=fx, y=fy)
+        sistem = SISTEM.format(ekran=ekran, x=fx, y=fy, klasor=KLASOR,
+                               py=os.path.join(os.path.dirname(sys.executable), "python.exe"))
         threading.Thread(target=self._claude, args=(istek, araclar, sistem, self.istek_no), daemon=True).start()
 
     def _claude(self, istek, araclar, sistem, no):
