@@ -11,6 +11,8 @@ Aç: masaüstündeki **Kanzi v2** kısayolu (ya da `python kanzi_v2.py`).
 | Ctrl+Alt+S | Konuş: bir kez bas, konuş, tekrar bas. Cevap sesli okunur |
 | Ctrl+Alt+A | Seçili metni ya da imlecin üstündekini açıkla. Yerel beyin açıksa yerelde (seçim yoksa OCR), değilse Claude (tıklanacak yeri de gösterir) |
 | Ctrl+Alt+T | Seçili metni çevir: Türkçe → İngilizce yerelde, başka dil → Türkçe Claude'da (4B model Türkçeyi bozuyor) |
+| Ctrl+Alt+→ / ← | Uzun cevap sayfalara bölünür (1/3…) ve kendiliğinden ilerler; bununla ileri/geri git. Baloncuk kapandıysa son sayfayı geri getirir |
+| Ctrl+Alt+C | Sohbet penceresi (ayarlar tasarımında): tüm konuşma geçmişi (`sohbet.json`, son 300 mesaj, kapatıp açınca da durur) + yazma kutusu, yeni mesajlar canlı düşer |
 | Ctrl+Alt+M | Sesli cevabı aç/kapa |
 | Ctrl+Alt+O | Ayarlar: sesli cevap, ses (Ahmet/Emel), görünüm (6 renk, küre/yumuşak kare/elmas/yıldız, kravat), yetki, yerel beyin, konuşmayı sıfırla |
 | Ctrl+Alt+X | Süren işi, sesli okumayı ve gösterilen adımı durdur |

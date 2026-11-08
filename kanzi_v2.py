@@ -3,9 +3,11 @@
 Kısayollar:
   Ctrl+Alt+Space  komut kutusu ("Prof. Lee'ye yarınki ders için e-posta taslağı hazırla")
   Ctrl+Alt+A      seçili metni / imlecin olduğu yeri açıkla (öğretme modu)
+  Ctrl+Alt+→ / ←  uzun cevapta sonraki / önceki sayfa
   Ctrl+Alt+T      seçili metni çevir (Türkçe <-> İngilizce, yerel model)
   Ctrl+Alt+S      bas-konuş: bir kez bas konuş, tekrar bas bitir (Whisper)
   Ctrl+Alt+X      iptal: süren işi, sesli okumayı, dinlemeyi ve gösterilen adımı durdurur
+  Ctrl+Alt+C      sohbet penceresi: tüm konuşma geçmişi + yazma kutusu
   Ctrl+Alt+M      sesli cevabı aç/kapa (ayarlar.json'a yazılır)
   Ctrl+Alt+O      ayarlar: sesli cevap, ses, yetki, konuşmayı sıfırla, kısayollar
   Ctrl+Alt+Q      çıkış
@@ -50,13 +52,15 @@ BOY = max(14, round(11 * user32.GetDpiForSystem() / 72))  # baloncuk yazısı (p
 g.OLCEK = user32.GetDpiForSystem() / 96  # küre de yazıyla birlikte ölçeklensin
 ONAY_YOK = "Read"
 EYLEM = "Read PowerShell Bash mcp__claude_ai_Gmail__create_draft"  # Gmail: yalnız taslak, gönderme izni yok
-KOMUTLAR = {1: "komut", 2: "acikla", 3: "cik", 4: "ses", 5: "iptal", 6: "sessiz", 7: "ayarlar", 8: "cevir"}
+KOMUTLAR = {1: "komut", 2: "acikla", 3: "cik", 4: "ses", 5: "iptal", 6: "sessiz", 7: "ayarlar", 8: "cevir", 9: "ileri", 10: "geri", 11: "sohbet"}
 OTURUM = os.path.join(KLASOR, "oturum.txt")
 AYAR = os.path.join(KLASOR, "ayarlar.json")
+SOHBET = os.path.join(KLASOR, "sohbet.json")  # sohbet penceresindeki geçmiş (son 300 mesaj)
 VARSAYILAN = {"sesli": True, "ses": "Ahmet", "yetki": "is", "yerel": True, "renk": "Mavi", "sekil": "Küre", "kravat": True, "koltuk": [],
               "oturuyor": False, "hatirlatmalar": []}  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
 KISAYOLLAR = (("Ctrl+Alt+Space", "yazarak komut (\"yeni konu\" sıfırlar)"), ("Ctrl+Alt+S", "konuş: bas, konuş, tekrar bas"),
-              ("Ctrl+Alt+A", "seçili metni / ekranı açıkla"), ("Ctrl+Alt+T", "seçili metni çevir"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
+              ("Ctrl+Alt+A", "seçili metni / ekranı açıkla"), ("Ctrl+Alt+→ / ←", "uzun cevapta sonraki / önceki sayfa"),
+              ("Ctrl+Alt+C", "sohbet penceresi (geçmiş + yaz)"), ("Ctrl+Alt+T", "seçili metni çevir"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
               ("Ctrl+Alt+O", "ayarlar"), ("Ctrl+Alt+X", "iptal"), ("Ctrl+Alt+Q", "kapat"))
 
 
@@ -154,6 +158,21 @@ def sayfala(metin, sinir=330):
     return sayfalar if n == 1 else [f"{s_} ({i}/{n})" for i, s_ in enumerate(sayfalar, 1)]
 
 
+def sohbet_oku(yol=None):
+    """[[kim, metin, zaman], ...]; bozuk dosyada boş."""
+    try:
+        with open(yol or SOHBET, encoding="utf-8") as f:
+            v = json.load(f)
+        return [m for m in v if isinstance(m, list) and len(m) == 3 and m[0] in ("sen", "kanzi")]
+    except (OSError, ValueError, TypeError):
+        return []
+
+
+def sohbet_yaz(mesajlar, yol=None):
+    with open(yol or SOHBET, "w", encoding="utf-8") as f:
+        json.dump(mesajlar[-300:], f, ensure_ascii=False)
+
+
 def calisma_alani():
     """Ana monitörün görev çubuğu hariç alanı (sol, üst, sağ, alt)."""
     r = wt.RECT()
@@ -211,7 +230,7 @@ def kisaysol_dinle(q):
     """RegisterHotKey: ek paket gerekmeden genel kısayol. Mesajlar aynı iş parçacığında alınmalı."""
     MOD = 0x0001 | 0x0002 | 0x4000  # Alt + Ctrl + tekrar yok
     for kimlik, tus in ((1, 0x20), (2, ord("A")), (3, ord("Q")), (4, ord("S")), (5, ord("X")), (6, ord("M")),
-                        (7, ord("O")), (8, ord("T"))):
+                        (7, ord("O")), (8, ord("T")), (9, 0x27), (10, 0x25), (11, ord("C"))):  # 0x27/0x25: sağ/sol ok
         if not user32.RegisterHotKey(None, kimlik, MOD, tus):
             q.put(("baloncuk", f"Kısayol {kimlik} alınamadı, başka program kullanıyor olabilir."))
     msg = wt.MSG()
@@ -269,7 +288,8 @@ class Kanzi:
         self.yazi = ("Ben Kanzi. Ctrl+Alt ile: Space yaz · S konuş · A açıkla · O ayarlar · X iptal"
                      + ("" if self.ayar["sesli"] else " (sessiz moddayım)"))
         self.yazi_bitis = time.time() + 8
-        self.sayfalar = []  # uzun cevabın sırada bekleyen sayfaları
+        self.sayfalar, self.sayfa = [], 0  # uzun cevabın sayfaları ve gösterilen
+        self.sohbet, self.cevap_bekleniyor, self.sohbet_pen = sohbet_oku(), False, None
         self.goz, self.etraf, self.etraf_zaman = [0.0, 0.0], None, 0.0  # bakış (yumuşatılmış) ve rastgele bakış
         self.fare, self.fare_zaman = (0, 0), time.time()
         self.ifade, self.ifade_bitis = "normal", 0.0
@@ -364,14 +384,14 @@ class Kanzi:
         self.x += (hx - self.x) * 0.25
         self.y += (hy - self.y) * 0.25
         self.zamanli_isler()
-        if self.sayfalar and time.time() > self.yazi_bitis:
-            self.sonraki_sayfa()
+        if self.sayfa < len(self.sayfalar) - 1 and time.time() > self.yazi_bitis:
+            self.sayfaya_git(self.sayfa + 1)  # okuma süresi doldu: kendiliğinden sıradaki
         self.ciz()
         if self.oturuyor:  # komut kutusu/ayarlar açılıp kapanınca Windows koltuğu öne alabiliyor: hep Kanzi'nin arkasında
             user32.SetWindowPos(ctypes.c_void_p(self.koltuk_hwnd), ctypes.c_void_p(self.hwnd), 0, 0, 0, 0, 0x13)
 
     def olay(self, tur, veri):
-        if tur in ("komut", "acikla", "ses", "ayarlar", "cevir"):
+        if tur in ("komut", "acikla", "ses", "ayarlar", "cevir", "sohbet"):
             t = time.time()
             self.cagri = [c for c in self.cagri if t - c < 15] + [t]
             if len(self.cagri) >= 4:  # 15 sn içinde 4. çağrı: "ne var yine"
@@ -390,6 +410,11 @@ class Kanzi:
                        else "Sessiz mod: cevapları yalnızca yazarım.")
         elif tur == "ayarlar":
             self.ayarlar_penceresi()
+        elif tur in ("ileri", "geri") and self.sayfalar:  # baloncuk kapanmış olsa da son cevap geri gelir
+            self.sayfaya_git(self.sayfa + (1 if tur == "ileri" else -1) if time.time() < self.yazi_bitis
+                             else self.sayfa)
+        elif tur == "sohbet":
+            self.sohbet_penceresi()
         elif tur == "iptal":
             self.iptal()
         elif tur == "ses":
@@ -556,8 +581,9 @@ class Kanzi:
             self.muzik = v if v > self.muzik else self.muzik * 0.85  # hızlı yükselir, yavaş söner
             time.sleep(0.05)
 
-    def sonraki_sayfa(self):
-        self.yazi = self.sayfalar.pop(0)
+    def sayfaya_git(self, i):
+        self.sayfa = max(0, min(i, len(self.sayfalar) - 1))
+        self.yazi = self.sayfalar[self.sayfa]
         self.yazi_bitis = time.time() + 4 + len(self.yazi) / 15  # okuma süresi kadar kalsın
 
     def yuz(self, ifade, sure):
@@ -607,8 +633,10 @@ class Kanzi:
             self.yuz("suphe" if "Duyamadım" in metin else "kizgin", 2.0)
         elif "bitmedi" in metin:
             self.yuz("bikkin", 2.0)
+        if self.cevap_bekleniyor:  # sorulan şeyin cevabı (ya da hatası) sohbet geçmişine
+            self.sohbete_yaz("kanzi", metin)
         self.sayfalar = sayfala(metin)  # uzun cevap kesilmesin: sayfa sayfa, okuma süresince sırayla
-        self.sonraki_sayfa()
+        self.sayfaya_git(0)
         self.akan_goster = ""
 
     # ---------- komut kutusu ----------
@@ -639,13 +667,107 @@ class Kanzi:
         def gonder(_=None):
             metin = g_.get().strip()
             kapat()
-            if metin.lower() == "yeni konu":
-                self.sifirla()
-            elif metin:
-                self.istek(metin, sesli=False)
+            self.yazilan(metin)
 
         g_.bind("<Return>", gonder)
         g_.bind("<Escape>", kapat)
+
+    def yazilan(self, metin):
+        """Komut kutusundan ya da sohbet penceresinden yazılan."""
+        if metin.lower() == "yeni konu":
+            self.sifirla()
+        elif metin:
+            self.istek(metin, sesli=False)
+
+    # ---------- sohbet ----------
+    def sohbete_yaz(self, kim, metin):
+        self.cevap_bekleniyor = kim == "sen"
+        self.sohbet = (self.sohbet + [[kim, metin.strip(), time.strftime("%d.%m %H:%M")]])[-300:]
+        sohbet_yaz(self.sohbet)
+        if self.sohbet_pen and self.sohbet_pen.winfo_exists():
+            self.sohbet_pen.ekle(*self.sohbet[-1])
+
+    def sohbet_penceresi(self):
+        if self.sohbet_pen and self.sohbet_pen.winfo_exists():
+            self.sohbet_pen.lift()
+            self.sohbet_pen.giris.focus_force()
+            return
+        p = self.sohbet_pen = tk.Toplevel(self.kok, bg=g.ZEMIN, padx=16, pady=14)
+        p.title("Kanzi v2 — Sohbet")
+        p.attributes("-topmost", True, "-alpha", 0.97)
+        p.minsize(420, 360)
+        ikon = os.path.join(KLASOR, "kanzi_v2_mavi.ico")
+        if os.path.exists(ikon):
+            p.iconbitmap(ikon)
+        ust = tk.Frame(p, bg=g.ZEMIN)
+        ust.pack(fill="x", pady=(0, 10))
+        p.resim = ImageTk.PhotoImage(g.karakter("bos", False, 0, 0, 0))
+        tk.Label(ust, image=p.resim, bg=g.ZEMIN).pack(side="left")
+        bas = tk.Frame(ust, bg=g.ZEMIN)
+        bas.pack(side="left", padx=8)
+        tk.Label(bas, text="Sohbet", bg=g.ZEMIN, fg=g.YAZI, font=("Segoe UI Semibold", 16)).pack(anchor="w")
+        tk.Label(bas, text="Geçmiş kalıcı · “yeni konu” yazınca Claude sıfırlanır", bg=g.ZEMIN,
+                 fg=g.SOLUK, font=("Segoe UI", 9)).pack(anchor="w")
+
+        alt = tk.Frame(p, bg=g.CIZGI)  # yazma kutusu: komut kutusuyla aynı görünüm
+        alt.pack(side="bottom", fill="x", pady=(10, 0))
+        ic = tk.Frame(alt, bg=g.KART, padx=12, pady=8)
+        ic.pack(fill="x", padx=1, pady=1)
+        tk.Label(ic, text="›", bg=g.KART, fg=g.VURGU, font=("Segoe UI Semibold", 13)).pack(side="left")
+        giris = p.giris = tk.Entry(ic, font=("Segoe UI", 11), bg=g.KART, fg=g.YAZI, insertbackground=g.VURGU,
+                                   relief="flat", bd=0, highlightthickness=0)
+        giris.pack(side="left", fill="x", expand=True, padx=8)
+
+        def gonder(_=None):
+            metin = giris.get().strip()
+            giris.delete(0, "end")
+            self.yazilan(metin)
+
+        dugme(ic, "Gönder", gonder, ana=True).pack(side="right")
+        giris.bind("<Return>", gonder)
+
+        cerceve = tk.Frame(p, bg=g.CIZGI)
+        cerceve.pack(fill="both", expand=True)
+        kutu = tk.Frame(cerceve, bg=g.ZEMIN)
+        kutu.pack(fill="both", expand=True, padx=1, pady=1)
+        kaydirma = tk.Scrollbar(kutu, bg=g.KART, troughcolor=g.ZEMIN, bd=0, width=10)
+        kaydirma.pack(side="right", fill="y")
+        t = tk.Text(kutu, bg=g.ZEMIN, fg=g.YAZI, font=("Segoe UI", 11), wrap="word", relief="flat", bd=0, padx=10,
+                    pady=8, width=58, height=20, highlightthickness=0, yscrollcommand=kaydirma.set, cursor="arrow")
+        t.pack(side="left", fill="both", expand=True)
+        kaydirma.configure(command=t.yview)
+        # mesajlar baloncuk gibi: seninkiler sağda açık kartta, Kanzi'ninkiler solda koyu kartta
+        t.tag_configure("sen_ad", foreground=g.VURGU, justify="right", font=("Segoe UI Semibold", 9),
+                        spacing1=10, rmargin=4)
+        t.tag_configure("sen", background=g.KART2, justify="right", lmargin1=90, lmargin2=90, rmargin=4,
+                        lmargincolor=g.ZEMIN, rmargincolor=g.ZEMIN, spacing1=3, spacing3=3)
+        t.tag_configure("kanzi_ad", foreground=g.SOLUK, font=("Segoe UI Semibold", 9), spacing1=10, lmargin1=4)
+        t.tag_configure("kanzi", background=g.KART, lmargin1=4, lmargin2=4, rmargin=90, lmargincolor=g.ZEMIN,
+                        rmargincolor=g.ZEMIN, spacing1=3, spacing3=3)
+
+        def ekle(kim, metin, zaman):
+            t.configure(state="normal")
+            t.insert("end", ("Sen" if kim == "sen" else "Kanzi") + f" · {zaman}\n", kim + "_ad")
+            t.insert("end", f" {metin} \n", kim)
+            t.configure(state="disabled")
+            t.see("end")
+
+        p.ekle = ekle
+        if not self.sohbet:
+            t.insert("end", "Henüz konuşma yok. Aşağıya yaz ya da Ctrl+Alt+S ile konuş.\n", "kanzi_ad")
+        for m in self.sohbet:
+            ekle(*m)
+        t.configure(state="disabled")
+        p.bind("<Escape>", lambda _: p.destroy())
+        p.update_idletasks()
+        g.koyu_pencere(user32.GetParent(p.winfo_id()))
+        fx, fy = self.kok.winfo_pointerxy()
+        alan = monitor_alani(fx, fy)
+        w, h = p.winfo_reqwidth() + 16, p.winfo_reqheight() + 40  # pencere henüz açılmadı: istenen boyut + çerçeve
+        x = min(max(alan[0], fx - w // 2), alan[2] - w)  # tek monitörde, görev çubuğunun üstünde kalsın
+        y = min(max(alan[1], fy - h // 2), alan[3] - h - 48)
+        p.geometry(f"+{x}+{max(alan[1], y)}")
+        p.after(50, lambda: (p.focus_force(), giris.focus_set()))
 
     # ---------- ayarlar ----------
     def yetki(self):
@@ -844,6 +966,7 @@ class Kanzi:
         secili = self.pano()
         if not secili and eski:
             self.kok.clipboard_append(eski)  # seçim yoktu, kullanıcının panosunu geri koy
+        self.sohbete_yaz("sen", ("Çevir: " if cevir else "Açıkla: ") + (secili[:300] or "imlecin olduğu yer"))
         if cevir:
             if not secili:
                 return self.soyle("Önce çevireceğim yazıyı seç kanka.")
@@ -878,6 +1001,7 @@ class Kanzi:
 
     def istek(self, metin, sesli):
         """Kullanıcının yazdığı/söylediği isteği yönlendirir: basit olan yerele, gerisi Claude'a."""
+        self.sohbete_yaz("sen", metin)
         h = isler.hatirlatma(metin)
         if h:
             return self.hatirlat_kur(*h)

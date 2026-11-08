@@ -106,3 +106,12 @@ assert len(ss) > 1 and all(len(x) <= 340 for x in ss) and ss[-1].endswith(f"({le
 assert " ".join(x.rsplit(" (", 1)[0] for x in ss) == uzun  # hiçbir şey kaybolmaz
 assert all(len(x) <= 340 for x in sayfala("a" * 1000))
 print("tamam sayfa")
+from kanzi_v2 import sohbet_oku, sohbet_yaz
+yol = os.path.join(tempfile.gettempdir(), "kanzi_v2_sohbet_test.json")
+open(yol, "w").write("bozuk")
+assert sohbet_oku(yol) == []
+sohbet_yaz([["sen", "selam", "08.11 15:00"], ["x", "?", "?"]] + [["kanzi", str(i), "z"] for i in range(400)], yol)
+v = sohbet_oku(yol)
+assert len(v) == 300 and v[-1] == ["kanzi", "399", "z"]  # son 300, geçersizler atılır
+os.remove(yol)
+print("tamam sohbet")
