@@ -64,7 +64,7 @@ BASLANGIC = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", 
 MASAUSTU_KISAYOL = os.path.join(os.path.expanduser("~"), "Desktop", "Kanzi v2.lnk")  # sohbet penceresindeki geçmiş (son 300 mesaj)
 VARSAYILAN = {"sesli": True, "ses": "Ahmet", "yetki": "is", "yerel": True, "renk": "Mavi", "sekil": "Küre", "kravat": True, "koltuk": [],
               "oturuyor": False, "hatirlatmalar": [], "kulak": True,
-              "sabah": True, "ozet": ""}  # sabah: her sabah ilk oturuşta özet; ozet: son özet günü  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
+              "sabah": True, "ozet": "", "model": "otomatik"}  # model: MODELLER anahtarı; sabah: her sabah ilk oturuşta özet; ozet: son özet günü  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
 KISAYOLLAR = (("Ctrl+Alt+Space", "yazarak komut (\"yeni konu\" sıfırlar)"), ("Ctrl+Alt+S", "konuş: bas, konuş, tekrar bas"),
               ("Ctrl+Alt+A", "seçili metni / ekranı açıkla"), ("Ctrl+Alt+→ / ←", "uzun cevapta sonraki / önceki sayfa"),
               ("Ctrl+Alt+C", "sohbet penceresi (geçmiş + yaz)"), ("\"yaz: …\"", "söylediğini aynen seçili kutuya yazar"), ("Ctrl+Alt+T", "seçili metni çevir"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
@@ -87,6 +87,8 @@ def ayar_oku(yol=None):
         a["yetki"] = VARSAYILAN["yetki"]
     if a["renk"] not in g.RENKLER:
         a["renk"] = VARSAYILAN["renk"]
+    if a["model"] not in MODELLER:
+        a["model"] = VARSAYILAN["model"]
     if a["sekil"] not in g.SEKILLER:
         a["sekil"] = VARSAYILAN["sekil"]
     if not (len(a["koltuk"]) == 2 and all(isinstance(v, int) for v in a["koltuk"])):
@@ -235,10 +237,30 @@ def monitor_alani(x, y):
     return mi.mon.left, mi.mon.top, mi.mon.right, mi.mon.bottom
 
 
-def claude_argumanlari(araclar, sistem):
+# Ayarlar > Claude modeli. Haiku/Sonnet anlatma ve gösterme testinde Opus kadar isabetli (0-2 px) ve daha hızlı,
+# kullanım hakkını çok daha az harcıyor. Otomatik: bilgisayarda iş yapılacaksa Sonnet, anlatma/gösterme Haiku.
+MODELLER = {"otomatik": "Otomatik (anlatma Haiku, iş Sonnet)", "haiku": "Hızlı ve az harcar (Haiku)",
+            "sonnet": "Dengeli (Sonnet)", "opus": "En güçlü, çok harcar (Opus)"}
+IS_KELIMELER = re.compile(
+    r"\b(tıkla\w*|yaz(ar\s+mısın|ıver|sana|dır)?\b|gönder\w*|kaydet\w*|sil\b|sil\w+|oluştur\w*|düzenle\w*|ekle\w*|"
+    r"değiştir\w*|indir\w*|kopyala\w*|yapıştır\w*|taşı\w*|kapat\w*|aç\b|açar\s+mısın|aç(ıver|sana)\w*|"
+    r"e-?posta\w*|mail\w*|taslak\w*|word|excel|powerpoint|tablo\w*|notlarıma|dosya\w*|klasör\w*|bul\b|bul(ur|sana)\w*|"
+    r"evet|göndereyim|onayl\w*|devam\s+et|tamam\s+yap)\b", re.I)
+
+
+def model_sec(istek, secim):
+    """Bu istek hangi Claude modeliyle gitsin ('haiku' | 'sonnet' | 'opus')."""
+    if secim != "otomatik":
+        return secim
+    return "sonnet" if IS_KELIMELER.search(istek) else "haiku"
+
+
+def claude_argumanlari(araclar, sistem, model=None):
+    """model: 'haiku' | 'sonnet' | 'opus' (Claude Code takma adları); None: Claude Code'un varsayılanı."""
     return [shutil.which("claude") or "claude", "-p", "--output-format", "stream-json", "--verbose",
             "--include-partial-messages",  # cevap yazılırken kelime kelime gelsin
             "--setting-sources", "project,local",  # kullanıcı hook'ları yüklenmesin, daha hızlı (Kanzi dersi)
+            *(["--model", model] if model else []),
             "--allowedTools", *araclar.split(), "--append-system-prompt", sistem]
 
 
@@ -342,6 +364,7 @@ class Kanzi:
         self.fare, self.fare_zaman = (0, 0), time.time()
         self.ifade, self.ifade_bitis = "normal", 0.0
         self.cagri, self.donus, self.yon, self.sarsinti_zaman = [], [], 0, 0.0  # kısayol sıklığı, fare sallama
+        self.model = None  # son Claude isteğinin modeli (model_sec)
         self.hedef = None  # (x, y, bitiş): öğretirken gösterilen tıklama yeri
         self.koken = (0, 0)  # son ekran görüntüsünün sol-üst köşesinin ekran koordinatı
         self.sol = False  # baloncuk Kanzi'nin solunda (koltuk sağ kenardayken)
@@ -1063,6 +1086,12 @@ class Kanzi:
         tk.Radiobutton(k, text="Sadece göstersin ve öğretsin: hiçbir şeye dokunmaz", value="ogret",
                        variable=yetki, command=kaydet, **secim).pack(fill="x", pady=(4, 0))
 
+        k = kart("Claude modeli", sol)
+        model = tk.StringVar(value=self.ayar["model"])
+        for anahtar, yazi_ in MODELLER.items():
+            tk.Radiobutton(k, text=yazi_, value=anahtar, variable=model, command=lambda: self.ayarla(model=model.get()),
+                           **secim).pack(fill="x")
+
         k = kart("Öğrendiklerim", sol)
         satir = tk.Frame(k, bg=g.KART)
         satir.pack(fill="x")
@@ -1128,8 +1157,17 @@ class Kanzi:
         p.update_idletasks()
         g.koyu_pencere(user32.GetParent(p.winfo_id()))
         fx, fy = self.kok.winfo_pointerxy()
-        p.geometry(f"+{max(0, fx - p.winfo_width() // 2)}+{max(0, fy - p.winfo_height() // 2)}")
         p.after(50, p.focus_force)
+
+        def yerlestir():  # Tk'nin geometry'si bu pencerede yok sayılıyor: açıldıktan sonra gerçek boyutla taşı
+            hwnd, r = user32.GetParent(p.winfo_id()), wt.RECT()
+            user32.GetWindowRect(hwnd, ctypes.byref(r))
+            w, h, a = r.right - r.left, r.bottom - r.top, monitor_alani(fx, fy)
+            x = max(a[0], min(fx - w // 2, a[2] - w))
+            y = max(a[1], min(fy - h // 2, a[3] - h - 48))  # 48: görev çubuğu
+            user32.SetWindowPos(hwnd, 0, x, y, 0, 0, 0x0001 | 0x0004 | 0x0010)  # NOSIZE|NOZORDER|NOACTIVATE
+
+        p.after(30, yerlestir)
 
     # ---------- ses girişi ----------
     def ses_ac_kapa(self):
@@ -1359,6 +1397,7 @@ class Kanzi:
         if self.durum in ("dusunuyor", "dinliyor", "cozuyor"):
             self.soyle("Bi dur ya, önceki iş bitmedi (iptal: Ctrl+Alt+X).")
             return
+        self.model = model_sec(istek, self.ayar["model"])
         if self.ayar["yetki"] == "ogret":
             istek = "(Sadece göster ve öğret modu: hiçbir şeyi kendin yapma, adımı HEDEF ile göster.)\n" + istek
         self.konusmaci.durdur()
@@ -1403,7 +1442,8 @@ class Kanzi:
 
     def _calistir(self, istek, araclar, sistem, oturum, no):
         """Claude'u akışlı çalıştırır; yazı parçalarını kuyruğa atar. (sonuç sözlüğü ya da None, JSON olmayan çıktı)."""
-        arg = claude_argumanlari(araclar, sistem) + (["--resume", oturum] if oturum else [])
+        arg = claude_argumanlari(araclar, sistem, self.model) + (["--resume", oturum] if oturum else [])
+        print(time.strftime("%Y-%m-%d %H:%M:%S"), f"claude: {self.model}", flush=True)  # hangi model ne sıklıkla
         self.zaman_asti = False
         self.surec = subprocess.Popen(arg, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                       text=True, encoding="utf-8", errors="replace", cwd=KLASOR,

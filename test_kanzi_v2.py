@@ -181,3 +181,13 @@ assert abs(isler.kucultme_orani(1920, 1200) * 1920 * isler.kucultme_orani(1920, 
 assert isler.kucultme_orani(1000, 800) == 1.0
 assert ekrana_cevir((678, 424), (0, 0, 0.5)) == (1356, 848)  # küçük görüntü pikseli -> gerçek ekran
 print("tamam oran")
+
+from kanzi_v2 import model_sec
+assert model_sec("ekrandaki soruyu anlat", "otomatik") == "haiku"
+assert model_sec("bunu nasıl yapıcam", "otomatik") == "haiku"
+assert model_sec("Word'de 3x3 tablo oluştur", "otomatik") == "sonnet"
+assert model_sec("arama kutusuna kedi yaz", "otomatik") == "sonnet"
+assert model_sec("ekrandaki soruyu anlat", "opus") == "opus"
+assert claude_argumanlari("Read", "s", "haiku")[-5:-3] == ["--model", "haiku"] or "--model" in claude_argumanlari("Read", "s", "haiku")
+assert "--model" not in claude_argumanlari("Read", "s")
+print("tamam model")

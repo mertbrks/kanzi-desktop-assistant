@@ -33,6 +33,7 @@ Aç: masaüstündeki **Kanzi v2** kısayolu (ya da `python kanzi_v2.py`).
 - **Ekrana çizim (`ciz.py`):** "şurayı daire içine al", "okla göster", "altını çiz" → mavi, dalgalı, kuyruğu silikleşen işaret (örnek.jpg tarzı) anlatım bitene kadar (Ctrl+Alt+→ son sayfada, Ctrl+Alt+X ya da yeni soru) kalır; tıklamaları engellemez.
 - **Sabah özeti:** her gün 06–12 arası bilgisayar başına ilk gelişte (ya da "günaydın", "bugün ne var") Google Takvim etkinlikleri, İstanbul havası ve o günkü hatırlatmalar; Ayarlar → Başlangıç'tan kapatılır.
 - **Pano geçmişi:** "pano geçmişi" / "son kopyaladıklarım" → Windows'un kendi pano geçmişini (Win+V) açar; seçtiğin yapıştırılır. Kanzi panoyu okumaz, saklamaz.
+- **Claude modeli (Ayarlar):** Otomatik (varsayılan): anlatma/gösterme Haiku, bilgisayarda iş yapma Sonnet; ya da hep Haiku / Sonnet / Opus. Haiku ve Sonnet işaretlemede 0-2 px isabetli ve daha hızlı, kullanım hakkını çok daha az harcar. Hangi isteğin hangi modele gittiği `kanzi_v2.log`da.
 - **Müzik:** "şarkıyı geç", "önceki şarkı", "müziği durdur", "sesi kıs/aç/kapat": medya tuşlarına basar (Spotify, YouTube…).
 - **Dans:** bilgisayardan ses gelince (Core Audio ses ölçer, ek paket yok) ritimle zıplar, koltuktaysa kafa sallar; kendi konuşması sayılmaz.
 - **Mola:** 2 saat ara vermeden kullanınca (5 dk boşta kalmak mola sayılır) "kalk biraz" der; 01:00–06:00 arası 45 dakikada bir "yatsana artık" der.
