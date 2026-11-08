@@ -158,3 +158,7 @@ _im, _sol, _ust = ciz.ciz_resmi(ciz.sekiller(["daire 100 100 50"]))
 assert (_sol, _ust) == (10, 10) and _im.size == (180, 180) and _im.getextrema()[3][1] == 255
 assert isler.PANO.search("pano geçmişi") and not isler.PANO.search("panodaki yazıyı çevir")
 print("tamam çizim/pano")
+assert all(isler.SABAH.search(s) for s in ("günaydın", "günaydın kanka!", "kanzi, bugün ne var", "sabah özeti"))
+assert not any(isler.SABAH.search(s) for s in ("günaydın, şu kodu düzelt", "bugün hava nasıl"))
+assert VARSAYILAN["sabah"] is True and VARSAYILAN["ozet"] == ""
+print("tamam sabah")

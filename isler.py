@@ -106,6 +106,8 @@ def tusa_bas(tus, kez=1):
         user32.keybd_event(tus, 0, 3, 0)  # + KEYUP
 
 
+SABAH = re.compile(r"^(?:(?:kanzi|kanka)[\s,]+)?(günaydın(\s+(kanka|kanzi))?\W*$|bugün\s+(ne(ler)?\s+var|program\w*|takvim\w*)|"
+                   r"sabah\s+özet\w*|günün\s+özet\w*)")
 PANO = re.compile(r"^(?:(?:kanzi|kanka)\s+)?(pano\w*\s+(geçmiş\w*|göster|aç)|kopyaladık\w*\s+(göster|listele|neler)|"
                   r"son\s+kopyaladık\w*|pano\s+geçmişi)")
 

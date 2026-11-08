@@ -63,7 +63,8 @@ BASLANGIC = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", 
                          "Kanzi v2.lnk")  # Windows açılınca Kanzi de açılsın: buradaki kısayol
 MASAUSTU_KISAYOL = os.path.join(os.path.expanduser("~"), "Desktop", "Kanzi v2.lnk")  # sohbet penceresindeki geçmiş (son 300 mesaj)
 VARSAYILAN = {"sesli": True, "ses": "Ahmet", "yetki": "is", "yerel": True, "renk": "Mavi", "sekil": "Küre", "kravat": True, "koltuk": [],
-              "oturuyor": False, "hatirlatmalar": [], "kulak": True}  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
+              "oturuyor": False, "hatirlatmalar": [], "kulak": True,
+              "sabah": True, "ozet": ""}  # sabah: her sabah ilk oturuşta özet; ozet: son özet günü  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
 KISAYOLLAR = (("Ctrl+Alt+Space", "yazarak komut (\"yeni konu\" sıfırlar)"), ("Ctrl+Alt+S", "konuş: bas, konuş, tekrar bas"),
               ("Ctrl+Alt+A", "seçili metni / ekranı açıkla"), ("Ctrl+Alt+→ / ←", "uzun cevapta sonraki / önceki sayfa"),
               ("Ctrl+Alt+C", "sohbet penceresi (geçmiş + yaz)"), ("\"yaz: …\"", "söylediğini aynen seçili kutuya yazar"), ("Ctrl+Alt+T", "seçili metni çevir"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
@@ -619,7 +620,9 @@ class Kanzi:
         if self.durum != "bos" or t < self.mola_zaman:
             return
         saat = time.localtime(t).tm_hour
-        if 1 <= saat < 6:  # gece geç saatte hâlâ başında
+        if 6 <= saat < 12 and self.ayar["sabah"] and self.ayar["ozet"] != time.strftime("%Y-%m-%d"):
+            self.sabah_ozeti(self.ayar["sesli"])  # bugün bilgisayar başına ilk geliş
+        elif 1 <= saat < 6:  # gece geç saatte hâlâ başında
             self.mola_zaman = t + 45 * 60
             self.yuz("bikkin", 2.5)
             self.soyle(random.choice((f"Saat {time.strftime('%H:%M')} kanka, yatsana artık.",
@@ -631,6 +634,21 @@ class Kanzi:
             self.soyle(random.choice(("Kanka 2 saattir başındasın, kalk biraz su iç.",
                                       "İki saat oldu, gözlerini dinlendir biraz.",
                                       "Bi esne, bi yürü. İki saattir oturuyorsun.")))
+
+    def sabah_ozeti(self, sesli):
+        """Bugünün takvimi + hava + hatırlatmalar: Claude Google Takvim bağlayıcısıyla okur, ekrana bakmaz."""
+        self.ayarla(ozet=time.strftime("%Y-%m-%d"))
+        if self.oturuyor:
+            self.kalk(soz=False)
+        bugun = time.strftime("%Y-%m-%d")
+        hs = [f"{time.strftime('%H:%M', time.localtime(z))} {m or 'süre dolacak'}" for z, m in self.ayar["hatirlatmalar"]
+              if time.strftime("%Y-%m-%d", time.localtime(z)) == bugun]
+        self.sor(f"Sabah özeti, bugün {bugun}. Ekran görüntüsüne BAKMA. 1) mcp__claude_ai_Google_Calendar__list_events ile "
+                 f"bugünün etkinlikleri (birincil takvim, {bugun} 00:00–23:59, Europe/Istanbul). 2) PowerShell: "
+                 "Invoke-RestMethod 'https://wttr.in/Istanbul?format=%C+%t&lang=tr' ile İstanbul havası. "
+                 f"3) Kanzi hatırlatmaları: {'; '.join(hs) or 'yok'}. Günaydın de, saatleriyle etkinlikleri, havayı ve "
+                 "hatırlatmaları en fazla 4 kısa cümlede söyle; etkinlik yoksa boş gün de. Hiçbir şeyi değiştirme.",
+                 "PowerShell mcp__claude_ai_Google_Calendar__list_events", sesli)
 
     def _muzik_dinle(self):
         try:
@@ -1072,6 +1090,9 @@ class Kanzi:
 
         tk.Checkbutton(k, text="Windows açılınca Kanzi de açılsın", variable=acilista, command=acilis_degisti,
                        **secim).pack(fill="x")
+        sabah = tk.BooleanVar(value=self.ayar["sabah"])
+        tk.Checkbutton(k, text="Sabah özeti (takvim, hava, hatırlatmalar)", variable=sabah,
+                       command=lambda: self.ayarla(sabah=sabah.get()), **secim).pack(fill="x")
         tk.Label(k, text="Tepsideki simgeden gizle / göster, sohbet, ayarlar, kapat.", anchor="w",
                  **dict(yazi, fg=g.SOLUK, font=("Segoe UI", 9))).pack(fill="x")
 
@@ -1188,6 +1209,8 @@ class Kanzi:
         if medya:
             isler.tusa_bas(*medya[1:])
             return self.soyle(isler.CEVAP[medya[0]])
+        if isler.SABAH.search(metin.strip().lower()):
+            return self.sabah_ozeti(sesli)
         if isler.PANO.search(re.sub(r"[^\w\s]", "", metin.lower())):  # Windows'un kendi pano geçmişi (Win+V)
             return self.dikte_yaz("", isler.pano_gecmisi, "Seç, yapıştırsın. Kapalıysa çıkan pencereden aç.")
         yer = yer_komutu(metin)
@@ -1313,7 +1336,7 @@ class Kanzi:
         sistem = SISTEM.format(ekran=ekran, x=fx, y=fy, klasor=KLASOR,
                                py=os.path.join(os.path.dirname(sys.executable), "python.exe"),
                                pyw=os.path.join(os.path.dirname(sys.executable), "pythonw.exe"))
-        sistem +=isler.ogrendiklerim_metni(OGRENDIKLERIM)
+        sistem += isler.ogrendiklerim_metni(OGRENDIKLERIM)
         threading.Thread(target=self._claude, args=(istek, araclar, sistem, self.istek_no), daemon=True).start()
 
     def _claude(self, istek, araclar, sistem, no):

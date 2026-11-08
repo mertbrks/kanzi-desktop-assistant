@@ -31,6 +31,7 @@ Aç: masaüstündeki **Kanzi v2** kısayolu (ya da `python kanzi_v2.py`).
 - **Soru çözme:** "ekrandaki soruyu çöz" → Claude adım adım çözer, son satır "Cevap: …"; uzunsa sayfalanır (Ctrl+Alt+→).
 - **Dosya bulma:** "dün indirdiğim pdf'i bul" → İndirilenler/Masaüstü/Belgeler'de arar, klasörde seçili gösterir; istersen açar. Silmez, taşımaz.
 - **Ekrana çizim (`ciz.py`):** "şurayı daire içine al", "okla göster", "altını çiz" → Kanzi'nin renginde, ışımalı işaret birkaç saniye görünür; tıklamaları engellemez.
+- **Sabah özeti:** her gün 06–12 arası bilgisayar başına ilk gelişte (ya da "günaydın", "bugün ne var") Google Takvim etkinlikleri, İstanbul havası ve o günkü hatırlatmalar; Ayarlar → Başlangıç'tan kapatılır.
 - **Pano geçmişi:** "pano geçmişi" / "son kopyaladıklarım" → Windows'un kendi pano geçmişini (Win+V) açar; seçtiğin yapıştırılır. Kanzi panoyu okumaz, saklamaz.
 - **Müzik:** "şarkıyı geç", "önceki şarkı", "müziği durdur", "sesi kıs/aç/kapat": medya tuşlarına basar (Spotify, YouTube…).
 - **Dans:** bilgisayardan ses gelince (Core Audio ses ölçer, ek paket yok) ritimle zıplar, koltuktaysa kafa sallar; kendi konuşması sayılmaz.
