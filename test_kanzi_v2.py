@@ -98,3 +98,11 @@ print("tamam hatırlatma")
 from isler import turkce_mi
 assert turkce_mi("Bugün hava güzel") and turkce_mi("bu iyi") and not turkce_mi("Please submit before Friday.")
 print("tamam çeviri")
+from kanzi_v2 import sayfala
+assert sayfala("Kısa cevap.") == ["Kısa cevap."]
+uzun = " ".join(f"Bu {i}. cümle biraz uzunca bir açıklama içeriyor." for i in range(20))
+ss = sayfala(uzun)
+assert len(ss) > 1 and all(len(x) <= 340 for x in ss) and ss[-1].endswith(f"({len(ss)}/{len(ss)})")
+assert " ".join(x.rsplit(" (", 1)[0] for x in ss) == uzun  # hiçbir şey kaybolmaz
+assert all(len(x) <= 340 for x in sayfala("a" * 1000))
+print("tamam sayfa")

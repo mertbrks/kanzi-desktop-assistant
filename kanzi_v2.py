@@ -132,6 +132,28 @@ def yer_komutu(metin):
     return "otur" if OTUR.search(m) else "gel" if GEL.search(m) else None
 
 
+def sayfala(metin, sinir=330):
+    """Uzun metni cümle sınırından sayfalara böler; birden çok sayfaysa sonuna (1/3) ekler."""
+    parcalar, sayfa = [], ""
+    for cumle in re.split(r"(?<=[.!?…:])\s+|\n+", metin.strip()):
+        while len(cumle) > sinir:  # tek cümle bile sığmıyorsa kelimeden böl
+            kes = cumle.rfind(" ", 0, sinir)
+            kes = kes if kes > 0 else sinir
+            parcalar.append(cumle[:kes])
+            cumle = cumle[kes:].strip()
+        parcalar.append(cumle)
+    sayfalar = []
+    for p in filter(None, parcalar):
+        if sayfa and len(sayfa) + 1 + len(p) > sinir:
+            sayfalar.append(sayfa)
+            sayfa = p
+        else:
+            sayfa = f"{sayfa} {p}".strip()
+    sayfalar.append(sayfa)
+    n = len(sayfalar)
+    return sayfalar if n == 1 else [f"{s_} ({i}/{n})" for i, s_ in enumerate(sayfalar, 1)]
+
+
 def calisma_alani():
     """Ana monitörün görev çubuğu hariç alanı (sol, üst, sağ, alt)."""
     r = wt.RECT()
@@ -247,6 +269,7 @@ class Kanzi:
         self.yazi = ("Ben Kanzi. Ctrl+Alt ile: Space yaz · S konuş · A açıkla · O ayarlar · X iptal"
                      + ("" if self.ayar["sesli"] else " (sessiz moddayım)"))
         self.yazi_bitis = time.time() + 8
+        self.sayfalar = []  # uzun cevabın sırada bekleyen sayfaları
         self.goz, self.etraf, self.etraf_zaman = [0.0, 0.0], None, 0.0  # bakış (yumuşatılmış) ve rastgele bakış
         self.fare, self.fare_zaman = (0, 0), time.time()
         self.ifade, self.ifade_bitis = "normal", 0.0
@@ -341,6 +364,8 @@ class Kanzi:
         self.x += (hx - self.x) * 0.25
         self.y += (hy - self.y) * 0.25
         self.zamanli_isler()
+        if self.sayfalar and time.time() > self.yazi_bitis:
+            self.sonraki_sayfa()
         self.ciz()
         if self.oturuyor:  # komut kutusu/ayarlar açılıp kapanınca Windows koltuğu öne alabiliyor: hep Kanzi'nin arkasında
             user32.SetWindowPos(ctypes.c_void_p(self.koltuk_hwnd), ctypes.c_void_p(self.hwnd), 0, 0, 0, 0, 0x13)
@@ -531,6 +556,10 @@ class Kanzi:
             self.muzik = v if v > self.muzik else self.muzik * 0.85  # hızlı yükselir, yavaş söner
             time.sleep(0.05)
 
+    def sonraki_sayfa(self):
+        self.yazi = self.sayfalar.pop(0)
+        self.yazi_bitis = time.time() + 4 + len(self.yazi) / 15  # okuma süresi kadar kalsın
+
     def yuz(self, ifade, sure):
         self.ifade, self.ifade_bitis = ifade, time.time() + sure
 
@@ -578,8 +607,8 @@ class Kanzi:
             self.yuz("suphe" if "Duyamadım" in metin else "kizgin", 2.0)
         elif "bitmedi" in metin:
             self.yuz("bikkin", 2.0)
-        self.yazi = metin if len(metin) < 400 else metin[:397] + "..."
-        self.yazi_bitis = time.time() + 4 + len(self.yazi) / 15  # okuma süresi kadar kalsın
+        self.sayfalar = sayfala(metin)  # uzun cevap kesilmesin: sayfa sayfa, okuma süresince sırayla
+        self.sonraki_sayfa()
         self.akan_goster = ""
 
     # ---------- komut kutusu ----------
