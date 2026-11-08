@@ -46,6 +46,7 @@ import gorunum as g  # noqa: E402  DPI ayarından sonra yüklensin
 from ses import HIZ, PARCA, SESLER, CumleBolucu, Konusmaci, Kulak, seviye, sr  # noqa: E402
 import yerel  # noqa: E402  OpenJarvis + Ollama: basit sorular yerelde, limit dolunca yedek
 import isler  # noqa: E402  hatırlatıcı, müzik tuşları, ses ölçer, boşta süre
+import tepsi  # noqa: E402  görev çubuğu simgesi
 
 user32 = ctypes.windll.user32
 GEN, YUK = 420, 200  # baloncuklu pencerenin en geniş hali (kenar kontrolü için)
@@ -56,7 +57,10 @@ EYLEM = "Read PowerShell Bash mcp__claude_ai_Gmail__create_draft"  # Gmail: yaln
 KOMUTLAR = {1: "komut", 2: "acikla", 3: "cik", 4: "ses", 5: "iptal", 6: "sessiz", 7: "ayarlar", 8: "cevir", 9: "ileri", 10: "geri", 11: "sohbet"}
 OTURUM = os.path.join(KLASOR, "oturum.txt")
 AYAR = os.path.join(KLASOR, "ayarlar.json")
-SOHBET = os.path.join(KLASOR, "sohbet.json")  # sohbet penceresindeki geçmiş (son 300 mesaj)
+SOHBET = os.path.join(KLASOR, "sohbet.json")
+BASLANGIC = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
+                         "Kanzi v2.lnk")  # Windows açılınca Kanzi de açılsın: buradaki kısayol
+MASAUSTU_KISAYOL = os.path.join(os.path.expanduser("~"), "Desktop", "Kanzi v2.lnk")  # sohbet penceresindeki geçmiş (son 300 mesaj)
 VARSAYILAN = {"sesli": True, "ses": "Ahmet", "yetki": "is", "yerel": True, "renk": "Mavi", "sekil": "Küre", "kravat": True, "koltuk": [],
               "oturuyor": False, "hatirlatmalar": [], "kulak": True}  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
 KISAYOLLAR = (("Ctrl+Alt+Space", "yazarak komut (\"yeni konu\" sıfırlar)"), ("Ctrl+Alt+S", "konuş: bas, konuş, tekrar bas"),
@@ -350,6 +354,8 @@ class Kanzi:
         self.koltuk_pen.bind("<ButtonRelease-1>", lambda _e: self.ayarla(koltuk=[int(v) for v in self.koltuk]))
         user32.ShowWindow(ctypes.c_void_p(self.koltuk_hwnd), 0)  # gizli başlar
         threading.Thread(target=kisaysol_dinle, args=(self.q,), daemon=True).start()
+        self.gizli = False  # tepsiden gizlendi
+        self.tepsi = tepsi.Tepsi(self.q, os.path.join(KLASOR, "kanzi_v2_mavi.ico"), lambda: self.gizli)
         if self.ayar["oturuyor"]:  # kapatılmadan önce koltuktaydı: oradan devam
             self.otur(soz=False)
         threading.excepthook = lambda a: self._kaydet_hata(a.exc_type, a.exc_value, a.exc_traceback)
@@ -379,6 +385,8 @@ class Kanzi:
             tur, veri = self.q.get()
             if self.olay(tur, veri) is False:
                 return
+        if self.gizli:  # gizliyken çizme, yalnız hatırlatmaları kaçırma
+            return self.zamanli_isler()
         fx, fy = self.kok.winfo_pointerxy()
         if self.hedef and time.time() > self.hedef[2]:
             self.hedef = None  # bir dakika tıklanmadı, ders bıraktı
@@ -415,6 +423,12 @@ class Kanzi:
             user32.SetWindowPos(ctypes.c_void_p(self.koltuk_hwnd), ctypes.c_void_p(self.hwnd), 0, 0, 0, 0, 0x13)
 
     def olay(self, tur, veri):
+        if tur in ("komut", "acikla", "ses", "ayarlar", "cevir", "sohbet") and self.gizli:
+            self.gizle_goster()  # gizliyken çağrıldı: geri gelsin
+        if tur == "tepsi":
+            if veri == "goster":
+                return self.gizle_goster()
+            tur = veri  # sohbet | ayarlar | cik: kısayoldakiyle aynı
         if tur in ("komut", "acikla", "ses", "ayarlar", "cevir", "sohbet"):
             t = time.time()
             self.cagri = [c for c in self.cagri if t - c < 15] + [t]
@@ -455,6 +469,7 @@ class Kanzi:
             else:
                 self.soyle("Duyamadım kanka, bir daha söyle.")
         elif tur == "cik":
+            self.tepsi.kaldir()
             self.konusmaci.durdur()
             self.yerel.kapat()  # Kanzi'nin açtığı sunucu kapansın, ekran kartı boşalsın
             self.kapaniyor = True
@@ -578,6 +593,8 @@ class Kanzi:
                      + (f"{mesaj} unutma!" if mesaj else "süre doldu!"))
             if self.oturuyor:
                 self.kalk(soz=False)  # koltuktan kalkıp yanına gelir
+            if self.gizli:
+                self.gizle_goster()
             self.yuz("saskin", 2.0)
             self.soyle(metin)
             if self.ayar["sesli"]:
@@ -747,6 +764,15 @@ class Kanzi:
                 threading.Thread(target=kisayol_simgesi, args=(kisa,), daemon=True).start()
         except OSError as e:  # logo yazılamadı diye Kanzi durmasın
             print("logo:", e, flush=True)
+
+    def gizle_goster(self):
+        self.gizli = not self.gizli
+        user32.ShowWindow(ctypes.c_void_p(self.hwnd), 0 if self.gizli else 4)  # 4: SW_SHOWNOACTIVATE
+        if self.oturuyor:
+            user32.ShowWindow(ctypes.c_void_p(self.koltuk_hwnd), 0 if self.gizli else 4)
+        self.son_kare = None
+        if not self.gizli:
+            self.soyle("Geldim.")
 
     def yazilan(self, metin):
         """Komut kutusundan ya da sohbet penceresinden yazılan."""
@@ -995,6 +1021,24 @@ class Kanzi:
                  "basliyor": "Açılıyor…", "kapali": "Kapalı",
                  "yok": "Çalışmıyor: OpenJarvis ya da Ollama kurulu değil (openjarvis.log)"}[self.yerel.durum]
         tk.Label(k, text=durum, anchor="w", **dict(yazi, fg=g.SOLUK)).pack(fill="x", pady=(4, 0))
+
+        k = kart("Başlangıç", sag)
+        acilista = tk.BooleanVar(value=os.path.exists(BASLANGIC))
+
+        def acilis_degisti():
+            try:
+                if acilista.get():
+                    shutil.copyfile(MASAUSTU_KISAYOL, BASLANGIC)
+                else:
+                    os.remove(BASLANGIC)
+            except OSError as e:
+                acilista.set(os.path.exists(BASLANGIC))
+                self.soyle(f"Başlangıç ayarı olmadı: {e}")
+
+        tk.Checkbutton(k, text="Windows açılınca Kanzi de açılsın", variable=acilista, command=acilis_degisti,
+                       **secim).pack(fill="x")
+        tk.Label(k, text="Tepsideki simgeden gizle / göster, sohbet, ayarlar, kapat.", anchor="w",
+                 **dict(yazi, fg=g.SOLUK, font=("Segoe UI", 9))).pack(fill="x")
 
         k = kart("Kısayollar", sag)
         for tus, ne in KISAYOLLAR:
