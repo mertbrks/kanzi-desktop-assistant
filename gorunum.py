@@ -285,8 +285,9 @@ def sar(metin, font, gen):
 
 
 @functools.lru_cache(maxsize=16)
-def baloncuk(metin, gen, boy):
-    """Buzlu koyu mavi cam baloncuk; sol kenarda küreye bakan kuyruk. (resim, kuyruk ucunun y'si)."""
+def baloncuk(metin, gen, boy, sol=False):
+    """Buzlu koyu mavi cam baloncuk; küreye bakan kuyruk solda (sol=True: baloncuk kürenin solunda, kuyruk sağda).
+    (resim, kuyruk ucunun y'si)."""
     font = yazi_tipi(boy)
     pad, kuyruk = int(boy * 0.85), 9
     satirlar = sar(metin, font, gen - 2 * pad - kuyruk)
@@ -297,12 +298,13 @@ def baloncuk(metin, gen, boy):
     W, H = w + 2 * golge, h + 2 * golge
     im = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
     s = lambda *v: [n * SS for n in v]
-    x0, y0, x1, y1 = golge + kuyruk, golge, golge + w, golge + h
+    x0, y0, x1, y1 = (golge, golge, golge + w - kuyruk, golge + h) if sol else (golge + kuyruk, golge, golge + w, golge + h)
     ky = y0 + min(24 * OLCEK, h / 2)  # kuyruk küre hizasında
     sekil = Image.new("L", im.size, 0)
     d = ImageDraw.Draw(sekil)
     d.rounded_rectangle(s(x0, y0, x1, y1), radius=14 * SS, fill=255)
-    d.polygon(s(golge, ky, x0 + 1, ky - 7, x0 + 1, ky + 7), fill=255)
+    d.polygon(s(golge + w, ky, x1 - 1, ky - 7, x1 - 1, ky + 7) if sol else s(golge, ky, x0 + 1, ky - 7, x0 + 1, ky + 7),
+              fill=255)
     # gölge: altta yumuşak koyu leke
     g = Image.new("RGBA", im.size, (2, 6, 18, 0))
     g.putalpha(sekil.point(lambda v: v * 120 // 255).filter(ImageFilter.GaussianBlur(5 * SS)))
@@ -330,19 +332,20 @@ def baloncuk(metin, gen, boy):
     return im, int(ky)
 
 
-def kare(durum, kirp, bak, aci, halka, zip_, metin, gen, boy, ok, ifade="normal"):
-    """Tek ekran karesi. ok: None ya da (alt, sag): okun ucu pencerenin o köşesinde, gösterilen noktada."""
+def kare(durum, kirp, bak, aci, halka, zip_, metin, gen, boy, ok, ifade="normal", sol=False):
+    """Tek ekran karesi. ok: None ya da (alt, sag): okun ucu pencerenin o köşesinde, gösterilen noktada.
+    sol: baloncuk kürenin solunda (koltuk ekranın sağ kenarındayken); küre resmin sağ ucunda durur."""
     kar = karakter(durum, kirp, bak, int(aci) // 15 * 15, round(halka, 1), ifade)
     oy = 6 if ok and not ok[0] else 0
     ay = 6 if ok and ok[0] else 0
     if metin:
-        bal, ky = baloncuk(metin, gen, boy)
+        bal, ky = baloncuk(metin, gen, boy, sol)
         W, H = kw() + bal.width - 14, max(kw() + 8, bal.height) + oy + ay
         im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        im.alpha_composite(bal, (kw() - 14, max(0, oy + kw() // 2 - ky)))
+        im.alpha_composite(bal, (0 if sol else kw() - 14, max(0, oy + kw() // 2 - ky)))
     else:
         im = Image.new("RGBA", (kw() + 8, kw() + 8 + oy + ay), (0, 0, 0, 0))
-    im.alpha_composite(kar, (0, oy + 4 + int(round(zip_))))
+    im.alpha_composite(kar, (im.width - kw() if sol and metin else 0, oy + 4 + int(round(zip_))))
     if ok:
         o = ok_resmi()
         if ok[0]:

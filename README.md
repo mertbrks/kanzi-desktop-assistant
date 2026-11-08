@@ -10,16 +10,21 @@ Aç: masaüstündeki **Kanzi v2** kısayolu (ya da `python kanzi_v2.py`).
 | Ctrl+Alt+Space | Yazarak komut ver. `yeni konu` yazarsan konuşma sıfırlanır |
 | Ctrl+Alt+S | Konuş: bir kez bas, konuş, tekrar bas. Cevap sesli okunur |
 | Ctrl+Alt+A | Seçili metni ya da imlecin üstündekini açıkla. Yerel beyin açıksa yerelde (seçim yoksa OCR), değilse Claude (tıklanacak yeri de gösterir) |
+| Ctrl+Alt+T | Seçili metni çevir: Türkçe → İngilizce yerelde, başka dil → Türkçe Claude'da (4B model Türkçeyi bozuyor) |
 | Ctrl+Alt+M | Sesli cevabı aç/kapa |
 | Ctrl+Alt+O | Ayarlar: sesli cevap, ses (Ahmet/Emel), görünüm (6 renk, küre/yumuşak kare/elmas/yıldız, kravat), yetki, yerel beyin, konuşmayı sıfırla |
 | Ctrl+Alt+X | Süren işi, sesli okumayı ve gösterilen adımı durdur |
 | Ctrl+Alt+Q | Kapat |
 
 - **Öğretme:** "nasıl yapılır" diye sorarsan Kanzi kırmızı okla tıklanacak yere gider. Oraya tıklayınca sıradaki adıma kendisi geçer, iş bitince "Bitti" der.
-- **Yetki (Ayarlar):** "İş yapabilir" seçiliyse Outlook/Word COM, `code`, klavye ve fareyle iş yapar; e-postayı taslak olarak gösterip "Göndereyim mi?" diye sorar. "Sadece göstersin" seçiliyse hiçbir şeye dokunmaz, yalnızca okuyup gösterir.
+- **Yetki (Ayarlar):** "İş yapabilir" seçiliyse Word COM, `code`, klavye ve fareyle iş yapar. E-posta: Outlook'ta hesap yok, Gmail bağlayıcısıyla (`create_draft`) yalnızca taslak hazırlar; gönderme izni yok, Gmail'den sen gönderirsin. "Sadece göstersin" seçiliyse hiçbir şeye dokunmaz, yalnızca okuyup gösterir.
 - **Yüz ve karakter:** kanka gibi, biraz huysuz. Gözbebekleri kafasına göre etrafa bakar, arada göz devirir, süzer, sırıtır. İş bitince çoğu zaman sırıtır, hata/iptalde kızar ya da üzülür, 15 sn içinde 4 kez çağrılınca kızar, fareyi sağa sola sallarsan "Dur be" der, 90 sn dokunulmazsa uyuklar. İfadeler: normal, mutlu, şaşkın, üzgün, uykulu, düşünceli, kızgın, bıkkın, şüpheli, sırıtan (`gorunum.karakter(..., ifade)`).
 - **Akışlı cevap:** Claude yazdıkça baloncuk dolar; ilk cümle biter bitmez okunmaya başlar, biri okunurken sıradaki hazırlanır (Sesli Komut'taki gibi, %20 hızlı).
-- **Koltuk:** "köşeye geç", "köşede bekle", "git otur" deyince sol alttaki bordo koltuğuna oturur; "gel" ya da "kalk" deyince imlece döner. Koltuğu fareyle sürükleyebilirsin, yeri `ayarlar.json`da (koltuk) kalır.
+- **Koltuk:** "köşeye geç", "köşede bekle", "git otur" deyince sol alttaki bordo koltuğuna oturur; "gel" ya da "kalk" deyince imlece döner. Koltuğu fareyle sürükleyebilirsin, yeri `ayarlar.json`da (koltuk) kalır. Kapatıp açınca oturuyorsa koltukta başlar (oturuyor). Koltuk sağ kenardaysa baloncuk sola açılır.
+- **Hatırlatıcı (`isler.py`, Claude'suz):** "20 dakika sonra çamaşırı hatırlat", "saat 15:30'da annemi aramayı hatırlat", "25 dakikalık odak başlat", "hatırlatmaları göster / iptal et". Zamanı gelince koltuktan kalkıp gelir, sesli moddaysa okur. `ayarlar.json`da (hatirlatmalar) durur; Kanzi kapalıyken geçen "biraz geç kaldım" diye söylenir.
+- **Müzik:** "şarkıyı geç", "önceki şarkı", "müziği durdur", "sesi kıs/aç/kapat": medya tuşlarına basar (Spotify, YouTube…).
+- **Dans:** bilgisayardan ses gelince (Core Audio ses ölçer, ek paket yok) ritimle zıplar, koltuktaysa kafa sallar; kendi konuşması sayılmaz.
+- **Mola:** 2 saat ara vermeden kullanınca (5 dk boşta kalmak mola sayılır) "kalk biraz" der; 01:00–06:00 arası 45 dakikada bir "yatsana artık" der.
 - **Ekran görüntülerinde görünmez** (`SetWindowDisplayAffinity` WDA_EXCLUDEFROMCAPTURE): soru sorarken gizlenip yanıp sönmez; yan etkisi: senin ekran görüntülerinde ve ekran paylaşımında da çıkmaz.
 - Ayarlar `ayarlar.json`, konuşma `oturum.txt`, hatalar ve çökme izleri `kanzi_v2.log` dosyasında.
 - Gereken: Claude Code girişi; `pillow`, `numpy`, `faster-whisper`, `SpeechRecognition`, `PyAudio`, `edge-tts`. Mikrofon yalnızca Ctrl+Alt+S'ye basınca açılır.

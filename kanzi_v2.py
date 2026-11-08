@@ -3,6 +3,7 @@
 Kısayollar:
   Ctrl+Alt+Space  komut kutusu ("Prof. Lee'ye yarınki ders için e-posta taslağı hazırla")
   Ctrl+Alt+A      seçili metni / imlecin olduğu yeri açıkla (öğretme modu)
+  Ctrl+Alt+T      seçili metni çevir (Türkçe <-> İngilizce, yerel model)
   Ctrl+Alt+S      bas-konuş: bir kez bas konuş, tekrar bas bitir (Whisper)
   Ctrl+Alt+X      iptal: süren işi, sesli okumayı, dinlemeyi ve gösterilen adımı durdurur
   Ctrl+Alt+M      sesli cevabı aç/kapa (ayarlar.json'a yazılır)
@@ -41,19 +42,21 @@ ctypes.windll.shcore.SetProcessDpiAwareness(2)  # imleç ve ekran görüntüsü 
 import gorunum as g  # noqa: E402  DPI ayarından sonra yüklensin
 from ses import HIZ, PARCA, SESLER, CumleBolucu, Konusmaci, Kulak, seviye, sr  # noqa: E402
 import yerel  # noqa: E402  OpenJarvis + Ollama: basit sorular yerelde, limit dolunca yedek
+import isler  # noqa: E402  hatırlatıcı, müzik tuşları, ses ölçer, boşta süre
 
 user32 = ctypes.windll.user32
 GEN, YUK = 420, 200  # baloncuklu pencerenin en geniş hali (kenar kontrolü için)
 BOY = max(14, round(11 * user32.GetDpiForSystem() / 72))  # baloncuk yazısı (px), ekran ölçeğine göre
 g.OLCEK = user32.GetDpiForSystem() / 96  # küre de yazıyla birlikte ölçeklensin
 ONAY_YOK = "Read"
-EYLEM = "Read PowerShell Bash"
-KOMUTLAR = {1: "komut", 2: "acikla", 3: "cik", 4: "ses", 5: "iptal", 6: "sessiz", 7: "ayarlar"}
+EYLEM = "Read PowerShell Bash mcp__claude_ai_Gmail__create_draft"  # Gmail: yalnız taslak, gönderme izni yok
+KOMUTLAR = {1: "komut", 2: "acikla", 3: "cik", 4: "ses", 5: "iptal", 6: "sessiz", 7: "ayarlar", 8: "cevir"}
 OTURUM = os.path.join(KLASOR, "oturum.txt")
 AYAR = os.path.join(KLASOR, "ayarlar.json")
-VARSAYILAN = {"sesli": True, "ses": "Ahmet", "yetki": "is", "yerel": True, "renk": "Mavi", "sekil": "Küre", "kravat": True, "koltuk": []}  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
+VARSAYILAN = {"sesli": True, "ses": "Ahmet", "yetki": "is", "yerel": True, "renk": "Mavi", "sekil": "Küre", "kravat": True, "koltuk": [],
+              "oturuyor": False, "hatirlatmalar": []}  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
 KISAYOLLAR = (("Ctrl+Alt+Space", "yazarak komut (\"yeni konu\" sıfırlar)"), ("Ctrl+Alt+S", "konuş: bas, konuş, tekrar bas"),
-              ("Ctrl+Alt+A", "seçili metni / ekranı açıkla"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
+              ("Ctrl+Alt+A", "seçili metni / ekranı açıkla"), ("Ctrl+Alt+T", "seçili metni çevir"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
               ("Ctrl+Alt+O", "ayarlar"), ("Ctrl+Alt+X", "iptal"), ("Ctrl+Alt+Q", "kapat"))
 
 
@@ -77,6 +80,8 @@ def ayar_oku(yol=None):
         a["sekil"] = VARSAYILAN["sekil"]
     if not (len(a["koltuk"]) == 2 and all(isinstance(v, int) for v in a["koltuk"])):
         a["koltuk"] = []  # koltuğun yeri bilinmiyor: sol alt köşe
+    a["hatirlatmalar"] = [h for h in a["hatirlatmalar"] if isinstance(h, list) and len(h) == 2
+                          and isinstance(h[0], (int, float)) and isinstance(h[1], str)]
     return a
 
 
@@ -92,10 +97,11 @@ cümle, markdown yok; ilk cümle kısa olsun ki okuma hemen başlasın. Hız ön
 (vault) ya da proje dosyalarına bakma, ekran görüntüsü ve istekle çalış.
 Ekran görüntüsü: {ekran} (Read ile bak). İmleç: x={x}, y={y} (fiziksel piksel).
 Eylem istenirse PowerShell ile yap. Tercih sırası: uygulamanın COM/CLI arayüzü
-(e-posta: Outlook.Application ile taslak oluştur ve .Display() ile göster; Word: Word.Application ile
+(e-posta: Mert Gmail kullanıyor, Outlook'ta hesap yok: Outlook'u AÇMA, mcp__claude_ai_Gmail__create_draft ile
+Gmail taslağı oluştur, gönderemezsin; Mert taslağı Gmail'den kendisi gönderir. Word: Word.Application ile
 tablo/biçim; VS Code: `code` komutu ve dosya düzenleme; Not Defteri: dosyaya yaz ve aç), sonra
 WScript.Shell SendKeys, en son fare tıklaması. Kullanıcı açıkça "gönder" demedikçe e-postayı GÖNDERME,
-taslak olarak göster. Dosya eklemek için Attachments.Add("tam yol").
+taslak olarak göster. Uzun sürecek komutu arka plana atma, kısa tut.
 Göndermek gibi geri alınamaz bir adımdan önce dur, taslağı göster ve "Göndereyim mi?" diye sor;
 kullanıcı sonraki mesajda onaylarsa yap. Dosya silme, sistem ayarı değiştirme, program kurma yapma.
 Öğretme: kullanıcı bir şeyin nasıl yapıldığını soruyorsa ya da açıklama istiyorsa işi kendin yapma.
@@ -183,7 +189,7 @@ def kisaysol_dinle(q):
     """RegisterHotKey: ek paket gerekmeden genel kısayol. Mesajlar aynı iş parçacığında alınmalı."""
     MOD = 0x0001 | 0x0002 | 0x4000  # Alt + Ctrl + tekrar yok
     for kimlik, tus in ((1, 0x20), (2, ord("A")), (3, ord("Q")), (4, ord("S")), (5, ord("X")), (6, ord("M")),
-                        (7, ord("O"))):
+                        (7, ord("O")), (8, ord("T"))):
         if not user32.RegisterHotKey(None, kimlik, MOD, tus):
             q.put(("baloncuk", f"Kısayol {kimlik} alınamadı, başka program kullanıyor olabilir."))
     msg = wt.MSG()
@@ -247,6 +253,10 @@ class Kanzi:
         self.cagri, self.donus, self.yon, self.sarsinti_zaman = [], [], 0, 0.0  # kısayol sıklığı, fare sallama
         self.hedef = None  # (x, y, bitiş): öğretirken gösterilen tıklama yeri
         self.koken = (0, 0)  # son ekran görüntüsünün sol-üst köşesinin ekran koordinatı
+        self.sol = False  # baloncuk Kanzi'nin solunda (koltuk sağ kenardayken)
+        self.muzik, self.dans_zaman = 0.0, 0.0  # bilgisayardan gelen ses (yumuşatılmış) ve son duyulduğu an
+        self.aktif_bas, self.mola_zaman = time.time(), 0.0  # mola hatırlatması
+        threading.Thread(target=self._muzik_dinle, daemon=True).start()
         self.kulak, self.kayit, self.seviye = Kulak(), None, 0.0
         threading.Thread(target=self.kulak.yukle, daemon=True).start()  # Whisper ilk açılışta yavaş yüklenir
         self.kok.report_callback_exception = self._hata  # pythonw'da hata sessizce kaybolmasın
@@ -275,6 +285,8 @@ class Kanzi:
         self.koltuk_pen.bind("<ButtonRelease-1>", lambda _e: self.ayarla(koltuk=[int(v) for v in self.koltuk]))
         user32.ShowWindow(ctypes.c_void_p(self.koltuk_hwnd), 0)  # gizli başlar
         threading.Thread(target=kisaysol_dinle, args=(self.q,), daemon=True).start()
+        if self.ayar["oturuyor"]:  # kapatılmadan önce koltuktaydı: oradan devam
+            self.otur(soz=False)
         threading.excepthook = lambda a: self._kaydet_hata(a.exc_type, a.exc_value, a.exc_traceback)
         self.dongu()
 
@@ -320,15 +332,21 @@ class Kanzi:
             hx = self.koltuk[0] + 48 * g.OLCEK - g.kw() / 2
             hy = self.koltuk[1] + 38 * g.OLCEK - 4 - g.kw() / 2
             alan = monitor_alani(hx, hy)
-            hx, hy = min(hx, alan[2] - self.boyut[0]), min(hy, alan[3] - self.boyut[1])
+            self.sol = hx + g.kw() + GEN > alan[2]  # sağ kenarda baloncuk sola açılsın, Kanzi koltuktan kaymasın
+            hy = min(hy, alan[3] - self.boyut[1])
         else:
             hx, hy = hedef_konum(fx, fy, monitor_alani(fx, fy), *self.boyut)
+        if not self.oturuyor:
+            self.sol = False
         self.x += (hx - self.x) * 0.25
         self.y += (hy - self.y) * 0.25
+        self.zamanli_isler()
         self.ciz()
+        if self.oturuyor:  # komut kutusu/ayarlar açılıp kapanınca Windows koltuğu öne alabiliyor: hep Kanzi'nin arkasında
+            user32.SetWindowPos(ctypes.c_void_p(self.koltuk_hwnd), ctypes.c_void_p(self.hwnd), 0, 0, 0, 0, 0x13)
 
     def olay(self, tur, veri):
-        if tur in ("komut", "acikla", "ses", "ayarlar"):
+        if tur in ("komut", "acikla", "ses", "ayarlar", "cevir"):
             t = time.time()
             self.cagri = [c for c in self.cagri if t - c < 15] + [t]
             if len(self.cagri) >= 4:  # 15 sn içinde 4. çağrı: "ne var yine"
@@ -339,6 +357,8 @@ class Kanzi:
             self.komut_kutusu()
         elif tur == "acikla":
             self.acikla_basla()
+        elif tur == "cevir":
+            self.acikla_basla(cevir=True)
         elif tur == "sessiz":
             self.ayarla(sesli=not self.ayar["sesli"])
             self.soyle("Sesli mod: sesle sorduğunda cevabı okurum." if self.ayar["sesli"]
@@ -434,13 +454,82 @@ class Kanzi:
             ifade = "uykulu"  # fareye uzun süre dokunulmadı
         kirp = (t % 4) < 0.12 and durum != "dinliyor"  # dört saniyede bir göz kırpar
         aci = (t * 300) % 360
-        im = g.kare(durum, kirp, bak, aci, halka, g.zip_hesapla(t), yazi, GEN, BOY, self.ok, ifade)
+        if durum == "bos" and ifade == "uykulu" and self.muzik > 0.03:
+            ifade = "mutlu"  # müzik varken uyuklamaz
+        im = g.kare(durum, kirp, bak, aci, halka, g.zip_hesapla(t), yazi, GEN, BOY, self.ok, ifade, self.sol)
         self.boyut = im.size
+        # müzik çalıyorsa ritimle zıplar (koltukta kafa sallar); kendi konuşması sayılmaz
+        dans = 0 if self.konusmaci.caliyor else round(min(1.0, self.muzik * 4) * (3 if self.oturuyor else 7) * g.OLCEK
+                                                      * abs(math.sin(t * math.pi * 2)))
+        x = self.x - (im.width - g.kw() if self.sol and yazi else 0)  # sola açılan baloncukta küre sağ uçta
         anahtar = (durum, kirp, bak, ifade, int(aci) // 15, round(halka, 1), round(g.zip_hesapla(t)), yazi,
-                   self.ok, int(self.x), int(self.y))
+                   self.ok, self.sol, int(x), int(self.y) - dans)
         if anahtar != self.son_kare:  # değişmeyen kareyi tekrar basma
             self.son_kare = anahtar
-            g.katmana_bas(self.hwnd, im, self.x, self.y)
+            g.katmana_bas(self.hwnd, im, x, self.y - dans)
+
+    # ---------- zamanlı işler: hatırlatma, mola, müzik ----------
+    def hatirlat_kur(self, saniye, mesaj):
+        hs = self.ayar["hatirlatmalar"]
+        if saniye == "liste":
+            if not hs:
+                return self.soyle("Kurulu hatırlatma yok.")
+            return self.soyle(" · ".join(f"{time.strftime('%H:%M', time.localtime(z))} {m or 'süre'}"
+                                         for z, m in sorted(hs)))
+        if saniye == "sil":
+            self.ayarla(hatirlatmalar=[])
+            return self.soyle(f"{len(hs)} hatırlatmayı sildim." if hs else "Zaten hatırlatma yoktu.")
+        self.ayarla(hatirlatmalar=hs + [[time.time() + saniye, mesaj]])
+        self.yuz("sirit", 1.2)
+        saat = time.strftime("%H:%M", time.localtime(time.time() + saniye))
+        self.soyle(f"Tamam, {isler.sure_yazi(saniye)} sonra ({saat}) "
+                   + (f"hatırlatırım: {mesaj}." if mesaj else "seslenirim."))
+
+    def zamanli_isler(self):
+        t = time.time()
+        hs = self.ayar["hatirlatmalar"]
+        gelen = [h for h in hs if h[0] <= t]
+        if gelen:
+            self.ayarla(hatirlatmalar=[h for h in hs if h[0] > t])
+            gec = t - gelen[0][0] > 120  # Kanzi kapalıyken geçmiş
+            mesaj = gelen[0][1]
+            metin = ("Kanka, hatırlatıyorum" + (" (biraz geç kaldım)" if gec else "") + ": "
+                     + (f"{mesaj} unutma!" if mesaj else "süre doldu!"))
+            if self.oturuyor:
+                self.kalk(soz=False)  # koltuktan kalkıp yanına gelir
+            self.yuz("saskin", 2.0)
+            self.soyle(metin)
+            if self.ayar["sesli"]:
+                self.konusmaci.ekle(metin, SESLER[self.ayar["ses"]])
+        bosta = isler.bosta_saniye()
+        if bosta > 300:  # 5 dk dokunmadıysa mola vermiş say
+            self.aktif_bas = t
+            return
+        if self.durum != "bos" or t < self.mola_zaman:
+            return
+        saat = time.localtime(t).tm_hour
+        if 1 <= saat < 6:  # gece geç saatte hâlâ başında
+            self.mola_zaman = t + 45 * 60
+            self.yuz("bikkin", 2.5)
+            self.soyle(random.choice((f"Saat {time.strftime('%H:%M')} kanka, yatsana artık.",
+                                      "Gece yarısını çoktan geçtik, yarın devam etsek?",
+                                      f"{time.strftime('%H:%M')} oldu. Uyku diye bir şey var.")))
+        elif t - self.aktif_bas > 2 * 3600:
+            self.mola_zaman, self.aktif_bas = t + 30 * 60, t
+            self.yuz("suphe", 2.5)
+            self.soyle(random.choice(("Kanka 2 saattir başındasın, kalk biraz su iç.",
+                                      "İki saat oldu, gözlerini dinlendir biraz.",
+                                      "Bi esne, bi yürü. İki saattir oturuyorsun.")))
+
+    def _muzik_dinle(self):
+        try:
+            olcer = isler.SesOlcer()
+        except OSError as e:  # hoparlör yoksa dans yok, Kanzi yine çalışır
+            return print("ses ölçer:", e, flush=True)
+        while not self.kapaniyor:
+            v = 0.0 if self.konusmaci.caliyor else olcer.tepe()
+            self.muzik = v if v > self.muzik else self.muzik * 0.85  # hızlı yükselir, yavaş söner
+            time.sleep(0.05)
 
     def yuz(self, ifade, sure):
         self.ifade, self.ifade_bitis = ifade, time.time() + sure
@@ -715,17 +804,26 @@ class Kanzi:
         except tk.TclError:
             return ""
 
-    def acikla_basla(self):
+    def acikla_basla(self, cevir=False):
         # Panoyu boşaltıp Ctrl+C gönder: bir şey seçili değilse eski pano "seçili metin" sanılmasın.
         eski = self.pano()
         self.kok.clipboard_clear()
         threading.Thread(target=kopyala_tusla, daemon=True).start()
-        self.kok.after(500, lambda: self.acikla(eski))
+        self.kok.after(500, lambda: self.acikla(eski, cevir))
 
-    def acikla(self, eski):
+    def acikla(self, eski, cevir=False):
         secili = self.pano()
         if not secili and eski:
             self.kok.clipboard_append(eski)  # seçim yoktu, kullanıcının panosunu geri koy
+        if cevir:
+            if not secili:
+                return self.soyle("Önce çevireceğim yazıyı seç kanka.")
+            if isler.turkce_mi(secili):  # Türkçe -> İngilizce yerelde iyi; tersinde 4B model Türkçeyi bozuyor: Claude
+                if self.ayar["yerel"] and self.yerel.durum == "hazir":
+                    return self.sor_yerel("Translate the following Turkish text into English. Output only the English "
+                                          f"translation.\n\n{secili[:3000]}", sesli=False)
+                return self.sor(f"Şu metni İngilizceye çevir, yalnızca çeviriyi yaz:\n{secili[:3000]}", ONAY_YOK, False)
+            return self.sor(f"Şu metni Türkçeye çevir, yalnızca çeviriyi yaz:\n{secili[:3000]}", ONAY_YOK, False)
         if self.ayar["yerel"] and self.yerel.durum == "hazir":  # Mert istedi: açıklama yerelde (anında, limitsiz)
             self.son_soru = (f"Şu metni kısaca açıkla:\n{secili[:3000]}" if secili
                              else "İmlecin olduğu yerde ne var? Kısaca açıkla.")
@@ -751,6 +849,13 @@ class Kanzi:
 
     def istek(self, metin, sesli):
         """Kullanıcının yazdığı/söylediği isteği yönlendirir: basit olan yerele, gerisi Claude'a."""
+        h = isler.hatirlatma(metin)
+        if h:
+            return self.hatirlat_kur(*h)
+        medya = isler.medya_komutu(metin)
+        if medya:
+            isler.tusa_bas(*medya[1:])
+            return self.soyle(isler.CEVAP[medya[0]])
         yer = yer_komutu(metin)
         if yer:
             return self.otur() if yer == "otur" else self.kalk()
@@ -769,9 +874,8 @@ class Kanzi:
             user32.SetWindowLongW(self.koltuk_hwnd, -20, ex & ~0x80000)
             user32.SetWindowLongW(self.koltuk_hwnd, -20, ex | 0x80000)
         g.katmana_bas(self.koltuk_hwnd, g.koltuk(g.OLCEK), *self.koltuk)
-        user32.SetWindowPos(ctypes.c_void_p(self.hwnd), ctypes.c_void_p(-1), 0, 0, 0, 0, 0x13)  # Kanzi koltuğun önünde
 
-    def otur(self):
+    def otur(self, soz=True):
         kg, kb = g.koltuk_boyutu()
         if not self.koltuk:
             alan = calisma_alani()
@@ -779,17 +883,22 @@ class Kanzi:
         alan = monitor_alani(*self.koltuk)  # monitör çıkarıldıysa koltuk görünür yere gelsin
         self.koltuk = [max(alan[0], min(self.koltuk[0], alan[2] - kg)), max(alan[1], min(self.koltuk[1], alan[3] - kb))]
         self.oturuyor = True
+        self.ayarla(oturuyor=True, koltuk=[int(v) for v in self.koltuk])
         # Tk'nin withdraw/deiconify'ı SetLayeredWindowAttributes çağırıyor, UpdateLayeredWindow sonra hata 87 veriyor
         user32.ShowWindow(ctypes.c_void_p(self.koltuk_hwnd), 4)  # SW_SHOWNOACTIVATE
         self.koltugu_bas()
+        if not soz:
+            return
         self.yuz("sirit", 1.5)
         self.soyle(random.choice(("Tamam, köşemdeyim. Lazım olursa seslen.", "Oh be, nihayet oturdum.",
                                   "Koltuğumdayım kanka. 'Gel' dersen gelirim.")))
 
-    def kalk(self):
+    def kalk(self, soz=True):
         self.oturuyor = False
+        self.ayarla(oturuyor=False)
         user32.ShowWindow(ctypes.c_void_p(self.koltuk_hwnd), 0)
-        self.soyle(random.choice(("Geldim, söyle.", "Tamam tamam, kalktım.", "Buradayım.")))
+        if soz:
+            self.soyle(random.choice(("Geldim, söyle.", "Tamam tamam, kalktım.", "Buradayım.")))
 
     def koltuk_tut(self, e):
         self.surukle = (e.x_root - self.koltuk[0], e.y_root - self.koltuk[1])

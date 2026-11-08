@@ -75,3 +75,26 @@ for m in ["gel", "Buraya gel!", "kalk", "hadi yanıma gel"]:
 for m in ["oturum açma ekranında ne yazıyor bana anlat", "fotosentez nedir", "geliştirici modu nasıl açılır"]:
     assert yer_komutu(m) is None, m
 print("tamam koltuk")
+import datetime
+from isler import hatirlatma, medya_komutu
+n = datetime.datetime(2026, 11, 8, 14, 0)
+assert hatirlatma("20 dakika sonra çamaşırı asmayı hatırlat", n) == (1200, "çamaşırı asmayı")
+assert hatirlatma("bana yarım saat sonra toplantıyı hatırlat.", n) == (1800, "toplantıyı")
+assert hatirlatma("saat 15:30'da annemi aramayı hatırlat", n) == (5400, "annemi aramayı")
+assert hatirlatma("saat 13:00'te hatırlat", n)[0] == 23 * 3600  # geçmiş saat: yarın
+assert hatirlatma("25 dakikalık odak başlat", n)[0] == 1500
+assert hatirlatma("hatırlatmaları göster") == ("liste", "") and hatirlatma("hatırlatmaları iptal et") == ("sil", "")
+assert hatirlatma("pisagor teoremini hatırlat") is None  # süre yok: normal soru
+assert medya_komutu("şarkıyı geç")[0] == "sonraki" and medya_komutu("Sesi kıs.")[0] == "kıs"
+assert medya_komutu("sesli cevabı aç") is None and medya_komutu("devam et") is None
+yol = os.path.join(tempfile.gettempdir(), "kanzi_v2_ayar_test.json")
+ayar_yaz(dict(VARSAYILAN, oturuyor=True, hatirlatmalar=[[1.5, "su"], ["bozuk"], [2, 3]]), yol)
+assert ayar_oku(yol) == dict(VARSAYILAN, oturuyor=True, hatirlatmalar=[[1.5, "su"]])
+os.remove(yol)
+import gorunum as gg
+sag, sol = (gg.kare("bos", False, (0, 0), 0, 0, 0, "Merhaba kanka", 420, 16, None, sol=s_) for s_ in (False, True))
+assert sag.size == sol.size and sol.getpixel((sol.width - gg.kw() // 2, sol.height // 2))[3] > 200  # küre sağda
+print("tamam hatırlatma")
+from isler import turkce_mi
+assert turkce_mi("Bugün hava güzel") and turkce_mi("bu iyi") and not turkce_mi("Please submit before Friday.")
+print("tamam çeviri")
