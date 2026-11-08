@@ -58,7 +58,7 @@ OTURUM = os.path.join(KLASOR, "oturum.txt")
 AYAR = os.path.join(KLASOR, "ayarlar.json")
 SOHBET = os.path.join(KLASOR, "sohbet.json")  # sohbet penceresindeki geçmiş (son 300 mesaj)
 VARSAYILAN = {"sesli": True, "ses": "Ahmet", "yetki": "is", "yerel": True, "renk": "Mavi", "sekil": "Küre", "kravat": True, "koltuk": [],
-              "oturuyor": False, "hatirlatmalar": []}  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
+              "oturuyor": False, "hatirlatmalar": [], "kulak": True}  # yetki: "is" (iş yapabilir) | "ogret" (yalnız gösterir)
 KISAYOLLAR = (("Ctrl+Alt+Space", "yazarak komut (\"yeni konu\" sıfırlar)"), ("Ctrl+Alt+S", "konuş: bas, konuş, tekrar bas"),
               ("Ctrl+Alt+A", "seçili metni / ekranı açıkla"), ("Ctrl+Alt+→ / ←", "uzun cevapta sonraki / önceki sayfa"),
               ("Ctrl+Alt+C", "sohbet penceresi (geçmiş + yaz)"), ("\"yaz: …\"", "söylediğini aynen seçili kutuya yazar"), ("Ctrl+Alt+T", "seçili metni çevir"), ("Ctrl+Alt+M", "sesli cevabı aç/kapa"),
@@ -322,7 +322,8 @@ class Kanzi:
         self.aktif_bas, self.mola_zaman = time.time(), 0.0  # mola hatırlatması
         threading.Thread(target=self._muzik_dinle, daemon=True).start()
         self.kulak, self.kayit, self.seviye = Kulak(), None, 0.0
-        threading.Thread(target=self.kulak.yukle, daemon=True).start()  # Whisper ilk açılışta yavaş yüklenir
+        if self.ayar["kulak"]:  # kapalıysa ekran kartında yer tutmaz, Google ile tanır
+            threading.Thread(target=self.kulak.yukle, daemon=True).start()  # Whisper ilk açılışta yavaş yüklenir
         self.kok.report_callback_exception = self._hata  # pythonw'da hata sessizce kaybolmasın
         self.kok.update_idletasks()
         self.hwnd = user32.GetParent(self.kok.winfo_id())
@@ -917,6 +918,19 @@ class Kanzi:
         k = kart("Ses", sol)
         tk.Checkbutton(k, text="Sesle sorduğumda cevabı sesli oku", variable=sesli, command=kaydet,
                        **secim).pack(fill="x")
+        kulak = tk.BooleanVar(value=self.ayar["kulak"])
+
+        def kulak_degisti():
+            self.ayarla(kulak=kulak.get())
+            if kulak.get():
+                threading.Thread(target=self.kulak.yukle, daemon=True).start()
+            else:
+                self.kulak.bosalt()
+
+        tk.Checkbutton(k, text="Konuşmamı bilgisayarda tanı (Whisper, ekran kartında ~1,8 GB)", variable=kulak,
+                       command=kulak_degisti, **secim).pack(fill="x")
+        tk.Label(k, text="Kapalıyken Ctrl+Alt+S yine çalışır: Google tanır, internet gerekir.", anchor="w",
+                 **dict(yazi, fg=g.SOLUK, font=("Segoe UI", 9))).pack(fill="x")
         satir = tk.Frame(k, bg=g.KART)
         satir.pack(fill="x", pady=(6, 0))
         tk.Label(satir, text="Ses:", **dict(yazi, fg=g.SOLUK)).pack(side="left")

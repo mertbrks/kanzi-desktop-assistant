@@ -56,14 +56,21 @@ class Kulak:
         except Exception:
             return "Google · internet"
 
+    def bosalt(self):
+        """Whisper'ı ekran kartından atar (~1,8 GB); bundan sonra Google ile tanınır."""
+        import gc
+        self.model = None
+        gc.collect()
+
     def coz(self, ham):
-        if not self.model:
+        model = self.model  # tanırken bosalt() çağrılsa da bu çözüm bitsin
+        if not model:
             try:
                 return sr.Recognizer().recognize_google(sr.AudioData(ham, HIZ, 2), language="tr-TR")
             except sr.UnknownValueError:
                 return ""
         ses = np.frombuffer(ham, np.int16).astype(np.float32) / 32768
-        parcalar, _ = self.model.transcribe(ses, language="tr", beam_size=5, condition_on_previous_text=False,
+        parcalar, _ = model.transcribe(ses, language="tr", beam_size=5, condition_on_previous_text=False,
                                             hotwords="Kanzi")
         metin = " ".join(p.text.strip() for p in parcalar if p.no_speech_prob < 0.6).strip()
         return UYDURMA_SON.sub("", metin).strip()  # Whisper sessizlikte altyazı kalıpları uydurur
