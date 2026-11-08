@@ -1,4 +1,5 @@
-"""Kanzi'nin Claude'u için: ekranın üstüne birkaç saniyeliğine Kanzi'nin renginde, ışımalı işaret çizer, tıklamaları engellemez.
+"""Kanzi'nin Claude'u için: ekranın üstüne mavi, dalgalı, kuyruğu silikleşen işaretler çizer (örnek.jpg tarzı);
+tıklamaları engellemez, Kanzi anlatımı kapatana kadar kalır.
 
     python ciz.py daire X Y [R]          (X, Y: ekran görüntüsü pikseli; R yarıçap, varsayılan 60)
     python ciz.py ok X1 Y1 X2 Y2         (X1,Y1'den X2,Y2'ye ok; ucu X2,Y2)
@@ -6,9 +7,7 @@
     birden çok şekil: "daire 100 200 ; ok 50 50 100 200"   --sure 8 (saniye; yoksa Kanzi kapatana kadar, en çok 15 dk)
 """
 import ctypes
-import json
 import math
-import os
 import sys
 import tkinter as tk
 
@@ -17,7 +16,8 @@ from PIL import Image, ImageDraw  # noqa: E402
 import gorunum as g  # noqa: E402
 
 u = ctypes.windll.user32
-PAY = 40  # ışıma için kenar payı
+PAY = 70  # dalga ve ok kanatları için kenar payı
+MAVI = (58, 141, 240)  # örnekteki düz mavi
 
 
 def sekiller(argv):
@@ -36,8 +36,31 @@ def sekiller(argv):
     return sonuc
 
 
+def serit(m, noktalar, kalinlik, saydamlik):
+    """Noktalar boyunca kalınlığı ve saydamlığı değişen dolu şerit (dörtgen dörtgen) maskeye çizer."""
+    for i in range(len(noktalar) - 1):
+        (x1, y1), (x2, y2) = noktalar[i], noktalar[i + 1]
+        boy = math.hypot(x2 - x1, y2 - y1) or 1
+        nx, ny = -(y2 - y1) / boy, (x2 - x1) / boy  # dik yön
+        w1, w2 = kalinlik[i] / 2, kalinlik[i + 1] / 2
+        m.polygon([(x1 + nx * w1, y1 + ny * w1), (x2 + nx * w2, y2 + ny * w2),
+                   (x2 - nx * w2, y2 - ny * w2), (x1 - nx * w1, y1 - ny * w1)], fill=int(saydamlik[i]),
+                  outline=int(saydamlik[i]))
+        if i:  # eğride dörtgenlerin dış köşesinde kama boşluğu kalmasın: eklemi yuvarlak doldur
+            m.ellipse([x1 - w1, y1 - w1, x1 + w1, y1 + w1], fill=int(saydamlik[i]))
+
+
+def ok_ucu(x, y, a, H):
+    """Geriye kıvrık kanatlı sivri uç (örnekteki gibi): uç (x,y), yön a, boy H."""
+    yerel = [(0, 0), (-1.1 * H, -0.62 * H)]
+    yerel += [(-1.1 * H + 0.5 * H * t, -0.62 * H * (1 - t) ** 1.6) for t in (0.2, 0.4, 0.6, 0.8, 1.0)]  # içe kıvrık, ince kanat
+    yerel += [(x_, -y_) for x_, y_ in reversed(yerel[1:-1])]  # alt kanat: ayna
+    ca, sa = math.cos(a), math.sin(a)
+    return [(x + px * ca - py * sa, y + px * sa + py * ca) for px, py in yerel]
+
+
 def ciz_resmi(liste, olcek=1.0):
-    """Şekilleri Kanzi'nin ok/halka tarzında çizer: tema rengi, ışıma, ince açık iç çizgi.
+    """Şekilleri örnek.jpg tarzında çizer: düz mavi, dalgalı gövde, kuyrukta silikleşme, uca doğru kalınlaşma.
     -> (RGBA resim, sol, üst) ekran görüntüsü pikseli cinsinden."""
     nok = []
     for ad, s in liste:
@@ -52,55 +75,40 @@ def ciz_resmi(liste, olcek=1.0):
     gen, boy = max(x for x, _ in nok) + PAY - sol, max(y for _, y in nok) + PAY - ust
     S = g.SS  # büyük çizip küçült: yumuşak kenar
     d = lambda x, y: ((x - sol) * S, (y - ust) * S)
-    uc = 22 * olcek * S  # ok ucunun boyu
-
-    def maske(kal):
-        """Şekiller, kal kalınlığında (yuvarlak uçlu) tek renk maske."""
-        mk = Image.new("L", (int(gen * S), int(boy * S)), 0)
-        m = ImageDraw.Draw(mk)
-        nokta = lambda x, y: m.ellipse([x - kal / 2, y - kal / 2, x + kal / 2, y + kal / 2], fill=255)
-        for ad, s in liste:
-            if ad == "daire":
-                r = s[2] if len(s) == 3 else 60
-                (x, y), rr = d(s[0], s[1]), r * S + kal / 2  # PIL kalınlığı içe çizer: kenar yarıçapta ortalansın
-                m.ellipse([x - rr, y - rr, x + rr, y + rr], outline=255, width=round(kal))
-            elif ad == "ok":
-                (x1, y1), (x2, y2) = d(s[0], s[1]), d(s[2], s[3])
-                a = math.atan2(y2 - y1, x2 - x1)
-                kose = [(x2, y2), *((x2 - uc * math.cos(a + t), y2 - uc * math.sin(a + t)) for t in (0.45, -0.45))]
-                m.line([(x1, y1), (x2 - uc * 0.7 * math.cos(a), y2 - uc * 0.7 * math.sin(a))], fill=255, width=round(kal))
-                nokta(x1, y1)
-                m.polygon(kose, fill=255)
-                for x, y in kose:  # uç da aynı kalınlıkta kenar alsın
-                    nokta(x, y)
-                m.line(kose + kose[:1], fill=255, width=round(kal), joint="curve")
-            else:
-                m.line([d(s[0], s[2]), d(s[1], s[2])], fill=255, width=round(kal))
-                nokta(*d(s[0], s[2]))
-                nokta(*d(s[1], s[2]))
-        return mk
-
-    kal = 5 * olcek * S
-    govde, ic, cizgi = maske(kal * 1.9), maske(kal), maske(max(S, kal / 3))
-    im = g.isima(ic, g.DINLE, 5 * S, 1.4)  # Kanzi'nin göz ışığı gibi parıltı
-
-    def boya(mk, renk, oran=1.0):
-        katman = Image.new("RGBA", mk.size, (*renk, 0))
-        katman.putalpha(mk if oran == 1.0 else mk.point(lambda v: int(v * oran)))
-        im.alpha_composite(katman)
-
-    boya(govde, g.GOVDE)  # koyu cam kenar: açık zeminde de seçilsin
-    boya(ic, g.DINLE)
-    boya(cizgi, (240, 250, 255), 0.8)  # ortadaki parlak şerit
+    mk = Image.new("L", (int(gen * S), int(boy * S)), 0)
+    m = ImageDraw.Draw(mk)
+    H, N = 38 * olcek * S, 64  # ok ucu boyu, şeritteki nokta sayısı
+    for ad, s in liste:
+        ts = [i / N for i in range(N + 1)]
+        if ad == "ok":
+            (x1, y1), (x2, y2) = d(s[0], s[1]), d(s[2], s[3])
+            a = math.atan2(y2 - y1, x2 - x1)
+            ex, ey = x2 - 0.5 * H * math.cos(a), y2 - 0.5 * H * math.sin(a)  # gövde ucun çentiğinde biter
+            L = math.hypot(ex - x1, ey - y1)
+            gx, gy, nx, ny = (ex - x1) / (L or 1), (ey - y1) / (L or 1), -math.sin(a), math.cos(a)
+            gen_ = min(18 * olcek * S, L * 0.09)  # dalga genliği; uçta sıfır: ok düz girsin
+            nk = [(x1 + gx * L * t + nx * gen_ * math.sin(2 * math.pi * t) * (1 - t),
+                   y1 + gy * L * t + ny * gen_ * math.sin(2 * math.pi * t) * (1 - t)) for t in ts]
+            serit(m, nk, [1.5 * S + 0.36 * H * t ** 0.8 for t in ts], [255 * min(1, t / 0.6) ** 1.4 for t in ts])
+            m.polygon(ok_ucu(x2, y2, a, H), fill=255)
+        elif ad == "daire":
+            r = (s[2] if len(s) == 3 else 60) * S
+            (cx, cy), b = d(s[0], s[1]), -2.4  # başlangıç açısı (sol üst); fırça darbesi gibi biraz fazla döner
+            nk = [(cx + r * (1 + 0.08 * (t - 0.5)) * math.cos(b + t * 2.25 * math.pi),
+                   cy + r * 0.92 * (1 + 0.08 * (t - 0.5)) * math.sin(b + t * 2.25 * math.pi)) for t in ts]
+            serit(m, nk, [S + 7 * olcek * S * math.sin(math.pi * min(1, t * 1.15)) ** 0.5 for t in ts],
+                  [255 * min(1, t / 0.35) ** 1.2 for t in ts])
+        else:
+            (x1, y), (x2, _) = d(s[0], s[2]), d(s[1], s[2])
+            nk = [(x1 + (x2 - x1) * t, y + 4 * olcek * S * math.sin(2 * math.pi * t)) for t in ts]
+            serit(m, nk, [S + 8 * olcek * S * min(1, t / 0.5) * (1 - t ** 6) for t in ts],
+                  [255 * min(1, t / 0.4) ** 1.2 for t in ts])
+    im = Image.new("RGBA", mk.size, (*MAVI, 0))
+    im.putalpha(mk)
     return im.resize((int(gen), int(boy)), Image.LANCZOS), sol, ust
 
 
 def goster(liste, sure):
-    try:  # Kanzi'nin seçili rengi (kanzi_v2'yi içe aktarmak yavaş: ayarı doğrudan oku)
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ayarlar.json"), encoding="utf-8") as f:
-            g.tema(json.load(f).get("renk", "Mavi"), "Küre")
-    except (OSError, ValueError):
-        pass
     im, sol, ust = ciz_resmi(liste, ctypes.windll.shcore.GetScaleFactorForDevice(0) / 100)
     k = tk.Tk()
     k.title("KanziCizim")  # Kanzi bu adla bulup kapatır

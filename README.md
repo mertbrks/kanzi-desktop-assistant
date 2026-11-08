@@ -30,7 +30,7 @@ Aç: masaüstündeki **Kanzi v2** kısayolu (ya da `python kanzi_v2.py`).
 - **Notlarıma ekle:** ekrandaki ya da seçili konuyu ders notu olarak Obsidian vault'unun kökündeki uygun `.md`nin sonuna ekler (yoksa yeni dosya açar); `wiki/`, `raw/`, `index.md`, `log.md`ye dokunmaz.
 - **Soru çözme:** "ekrandaki soruyu çöz" → Claude adım adım çözer, son satır "Cevap: …"; uzunsa sayfalanır (Ctrl+Alt+→).
 - **Dosya bulma:** "dün indirdiğim pdf'i bul" → İndirilenler/Masaüstü/Belgeler'de arar, klasörde seçili gösterir; istersen açar. Silmez, taşımaz.
-- **Ekrana çizim (`ciz.py`):** "şurayı daire içine al", "okla göster", "altını çiz" → Kanzi'nin renginde, ışımalı işaret anlatım bitene kadar (Ctrl+Alt+→ son sayfada, Ctrl+Alt+X ya da yeni soru) kalır; tıklamaları engellemez.
+- **Ekrana çizim (`ciz.py`):** "şurayı daire içine al", "okla göster", "altını çiz" → mavi, dalgalı, kuyruğu silikleşen işaret (örnek.jpg tarzı) anlatım bitene kadar (Ctrl+Alt+→ son sayfada, Ctrl+Alt+X ya da yeni soru) kalır; tıklamaları engellemez.
 - **Sabah özeti:** her gün 06–12 arası bilgisayar başına ilk gelişte (ya da "günaydın", "bugün ne var") Google Takvim etkinlikleri, İstanbul havası ve o günkü hatırlatmalar; Ayarlar → Başlangıç'tan kapatılır.
 - **Pano geçmişi:** "pano geçmişi" / "son kopyaladıklarım" → Windows'un kendi pano geçmişini (Win+V) açar; seçtiğin yapıştırılır. Kanzi panoyu okumaz, saklamaz.
 - **Müzik:** "şarkıyı geç", "önceki şarkı", "müziği durdur", "sesi kıs/aç/kapat": medya tuşlarına basar (Spotify, YouTube…).

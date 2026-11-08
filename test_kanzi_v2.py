@@ -155,7 +155,7 @@ assert all(yonlendir(s) == "claude" for s in ("bu soruyu çöz", "ekrandaki soru
                                                "şurayı daire içine al", "altını çiz", "dün indirdiğim pdf'i bul"))
 print("tamam çiz")
 _im, _sol, _ust = ciz.ciz_resmi(ciz.sekiller(["daire 100 100 50"]))
-assert (_sol, _ust) == (10, 10) and _im.size == (180, 180) and _im.getextrema()[3][1] == 255
+assert (_sol, _ust) == (-20, -20) and _im.size == (240, 240) and _im.getextrema()[3][1] == 255
 assert isler.PANO.search("pano geçmişi") and not isler.PANO.search("panodaki yazıyı çevir")
 print("tamam çizim/pano")
 assert all(isler.SABAH.search(s) for s in ("günaydın", "günaydın kanka!", "kanzi, bugün ne var", "sabah özeti"))
