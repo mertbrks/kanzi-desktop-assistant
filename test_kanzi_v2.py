@@ -115,3 +115,7 @@ v = sohbet_oku(yol)
 assert len(v) == 300 and v[-1] == ["kanzi", "399", "z"]  # son 300, geçersizler atılır
 os.remove(yol)
 print("tamam sohbet")
+from yerel import imlece_uzaklik
+u = lambda x, y, sag: imlece_uzaklik(x, y, sag, 500, 300)  # imleç (500, 300)
+assert u(100, 295, 900) < u(100, 330, 900) < u(600, 295, 900)  # altındaki satır < alttaki satır < yan sütun
+print("tamam imleç")

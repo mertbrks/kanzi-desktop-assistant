@@ -981,8 +981,9 @@ class Kanzi:
             return self.sor(f"Şu metni Türkçeye çevir, yalnızca çeviriyi yaz:\n{secili[:3000]}", ONAY_YOK, False)
         if self.ayar["yerel"] and self.yerel.durum == "hazir":  # Mert istedi: açıklama yerelde (anında, limitsiz)
             self.son_soru = (f"Şu metni kısaca açıkla:\n{secili[:3000]}" if secili
-                             else "İmlecin olduğu yerde ne var? Kısaca açıkla.")
-            return self.sor_yerel(self.son_soru, sesli=False, ekran=not secili, baglam=False)
+                             else "İmlecin olduğu yerde ne var? Yalnızca 'İMLECİN HEMEN ÇEVRESİ' bölümündekini kısaca açıkla, "
+                                "ekranın geri kalanını ve pencereyi anlatma.")
+            return self.sor_yerel(self.son_soru, sesli=False, ekran=not secili, baglam=False, yakin=True)
         istek = ("İmlecin olduğu yerde ne görüyorsan kısaca açıkla ve bir sonraki adımı öğret (HEDEF ile göster)."
                  + (f"\nKullanıcının seçtiği metin (pano):\n{secili[:4000]}" if secili else ""))
         self.sor(istek, ONAY_YOK, sesli=False)
@@ -1082,7 +1083,7 @@ class Kanzi:
         self.son_kare = None  # yeniden basılsın
         return ekran, fx - self.koken[0], fy - self.koken[1]
 
-    def sor_yerel(self, metin, sesli, onek="", ekran=False, baglam=None):
+    def sor_yerel(self, metin, sesli, onek="", ekran=False, baglam=None, yakin=False):
         """baglam: eski konuşma da gitsin mi; ekran sorusunda ve açıkla/çevir'de gitmez, yoksa eski konuyu anlatıyor."""
         baglam = not ekran if baglam is None else baglam
         if self.durum in ("dusunuyor", "dinliyor", "cozuyor"):
@@ -1101,7 +1102,7 @@ class Kanzi:
             soru = metin
             if goruntu:
                 try:
-                    soru = yerel.ekran_metni(*goruntu) + "\n\nSoru: " + metin
+                    soru = yerel.ekran_metni(*goruntu, yalniz_yakin=yakin) + "\n\nSoru: " + metin
                 except (OSError, subprocess.SubprocessError):  # OCR olmadı: Claude'a geç
                     return self.q.put(("claudea", (no, metin, sesli)))
             try:

@@ -25,6 +25,7 @@ SISTEM = ("Sen Kanzi'sin: Mert'in bilgisayarında imlecin yanında duran yardım
           "olduğunu ve ekranda ne yazdığını çıkarıp anlat, 'anlatamam' deme; yalnızca resim ve renkleri bilemezsin. Bilgisayarda iş yapamazsın; istenirse 'bunu Claude'la yapayım' de. Emin "
           "olmadığın bilgiyi uydurma, bilmediğini söyle.")
 OCR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ekran_ocr.ps1")
+YAKIN = 8  # Ctrl+Alt+A'da asıl anlatılacak: imlece en yakın satır sayısı
 OCR_SINIR = 4000  # karakter; Ollama'nın 4096 jetonluk bağlamına sığsın
 
 # İş yaptırma ve öğretme Claude'a gider. Yalnızca ekranı okuma/anlatma yerelde, OCR metniyle. Gerisi yerelde.
@@ -50,27 +51,43 @@ def yonlendir(metin):
     return "ekran" if EKRAN_KELIMELER.search(m) else "yerel"
 
 
-def ekran_metni(resim, fx, fy):
+def ekran_metni(resim, fx, fy, yalniz_yakin=False):
     """Ekran görüntüsündeki yazılar (Windows OCR, Türkçe). İmlece yakın satırlar önce sığdırılır, sonra okuma sırası."""
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", OCR, resim],
                        capture_output=True, timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
     satirlar = []
     for s in r.stdout.decode("utf-8", "replace").splitlines():
         konum, _, yazi = s.partition("\t")
-        x, _, y = konum.partition(",")
-        if yazi.strip() and x.lstrip("-").isdigit() and y.lstrip("-").isdigit():
-            satirlar.append((int(x), int(y), yazi.strip()))
+        try:
+            x, y, sag = (int(v) for v in konum.split(","))  # satırın solu, üstü, sağı
+        except ValueError:
+            continue
+        if yazi.strip():
+            satirlar.append((x, y, sag, yazi.strip()))
+    satirlar.sort(key=lambda s: imlece_uzaklik(s[0], s[1], s[2], fx, fy))
+    yakin = "\n".join(s[3] for s in sorted(satirlar[:YAKIN], key=lambda s: (s[1] // 12, s[0])))
+    baslik = ctypes.create_unicode_buffer(300)
+    ctypes.windll.user32.GetWindowTextW(ctypes.windll.user32.GetForegroundWindow(), baslik, 300)
+    if yalniz_yakin:  # Ctrl+Alt+A: geri kalanı verilirse küçük model ekranın geneline kayıyor
+        return (f"Pencere: {baslik.value or 'bilinmiyor'}\n"
+                f"İMLECİN HEMEN ÇEVRESİ (imlecin üstündeki ve yanındaki satırlar, OCR):\n{yakin}")
     secilen, boy = [], 0
-    for x, y, yazi in sorted(satirlar, key=lambda s: (s[0] - fx) ** 2 + (s[1] - fy) ** 2):
+    for x, y, _, yazi in satirlar:
         if boy + len(yazi) > OCR_SINIR:
             break
         secilen.append((y // 12, x, yazi))  # aynı satırdakiler soldan sağa
         boy += len(yazi) + 1
     metin = "\n".join(yazi for _, _, yazi in sorted(secilen))
-    baslik = ctypes.create_unicode_buffer(300)
-    ctypes.windll.user32.GetWindowTextW(ctypes.windll.user32.GetForegroundWindow(), baslik, 300)
     return (f"Şu an önde olan pencere: {baslik.value or 'bilinmiyor'}\n"
-            f"Ekrandaki yazılar (OCR; imleç {fx},{fy} noktasında, imlece yakın olanlar önce):\n{metin}")
+            f"İMLECİN HEMEN ÇEVRESİ (imlecin üstündeki ve yanındaki satırlar):\n{yakin}\n\n"
+            f"Ekranın geri kalanı (OCR, yalnızca bağlam için):\n{metin}")
+
+
+def imlece_uzaklik(x, y, sag, fx, fy):
+    """OCR satırının (sol x, üst y, sağ) imlece uzaklığı: imleç satırın altındaysa yatay uzaklık 0.
+    Dikey uzaklık daha ağır: yan sütundaki aynı hizadaki yazı, alttaki satırdan uzak sayılsın."""
+    dx = 0 if x <= fx <= sag else min(abs(fx - x), abs(fx - sag))
+    return (y - fy + 8) ** 2 + (dx * 3) ** 2
 
 
 def ekran_sorusu(ekran_bilgisi, soru):

@@ -1,4 +1,4 @@
-# Windows'un kendi OCR'ı (Türkçe) ile bir resimdeki yazıları satır satır çıkarır: "x,y<TAB>metin" (satırın sol üstü, resim pikseli)
+﻿# Windows'un kendi OCR'ı (Türkçe) ile bir resimdeki yazıları satır satır çıkarır: "x,y<TAB>metin" (satırın sol üstü, resim pikseli)
 param([string]$Resim)
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
@@ -21,6 +21,7 @@ if (-not $motor) { $motor = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProf
 $sonuc = Bekle ($motor.RecognizeAsync($bmp)) ([Windows.Media.Ocr.OcrResult])
 foreach ($satir in $sonuc.Lines) {
     $k = (@($satir.Words) | Select-Object -First 1).BoundingRect
-    "{0},{1}`t{2}" -f [int]$k.X, [int]$k.Y, $satir.Text
+    $s = (@($satir.Words) | Select-Object -Last 1).BoundingRect
+    "{0},{1},{2}`t{3}" -f [int]$k.X, [int]$k.Y, [int]($s.X + $s.Width), $satir.Text
 }
 $akis.Dispose()
