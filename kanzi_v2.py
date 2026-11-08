@@ -164,23 +164,27 @@ def yer_komutu(metin):
     return "otur" if OTUR.search(m) else "gel" if GEL.search(m) else None
 
 
-def sayfala(metin, sinir=330):
-    """Uzun metni cümle sınırından sayfalara böler; birden çok sayfaysa sonuna (1/3) ekler."""
-    parcalar, sayfa = [], ""
-    for cumle in re.split(r"(?<=[.!?…:])\s+|\n+", metin.strip()):
-        while len(cumle) > sinir:  # tek cümle bile sığmıyorsa kelimeden böl
-            kes = cumle.rfind(" ", 0, sinir)
-            kes = kes if kes > 0 else sinir
-            parcalar.append(cumle[:kes])
-            cumle = cumle[kes:].strip()
-        parcalar.append(cumle)
-    sayfalar = []
-    for p in filter(None, parcalar):
-        if sayfa and len(sayfa) + 1 + len(p) > sinir:
+def sayfala(metin, sinir=330, satir_siniri=7):
+    """Uzun metni cümle sınırından sayfalara böler, satır sonlarını korur (adım adım anlatım satır satır kalsın);
+    birden çok sayfaysa sonuna (1/3) ekler."""
+    parcalar = []  # (yazı, yeni satırla mı başlıyor)
+    for satir in filter(None, (s_.strip() for s_ in metin.strip().split("\n"))):
+        for i, cumle in enumerate(re.split(r"(?<=[.!?…:])\s+", satir)):
+            yeni = i == 0
+            while len(cumle) > sinir:  # tek cümle bile sığmıyorsa kelimeden böl
+                kes = cumle.rfind(" ", 0, sinir)
+                kes = kes if kes > 0 else sinir
+                parcalar.append((cumle[:kes], yeni))
+                cumle, yeni = cumle[kes:].strip(), False
+            parcalar.append((cumle, yeni))
+    sayfalar, sayfa = [], ""
+    for p, yeni in parcalar:
+        ek = f"\n{p}" if yeni else f" {p}"
+        if sayfa and (len(sayfa) + len(ek) > sinir or (yeni and sayfa.count("\n") + 1 >= satir_siniri)):
             sayfalar.append(sayfa)
             sayfa = p
         else:
-            sayfa = f"{sayfa} {p}".strip()
+            sayfa = (sayfa + ek).strip() if sayfa else p
     sayfalar.append(sayfa)
     n = len(sayfalar)
     return sayfalar if n == 1 else [f"{s_} ({i}/{n})" for i, s_ in enumerate(sayfalar, 1)]
