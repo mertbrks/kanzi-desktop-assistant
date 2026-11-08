@@ -18,6 +18,7 @@ import gorunum as g  # noqa: E402
 u = ctypes.windll.user32
 PAY = 70  # dalga ve ok kanatları için kenar payı
 MAVI = (58, 141, 240)  # örnekteki düz mavi
+EN_KISA_OK = 150  # px (100% ölçekte); Mert kısayı beğenmedi, 240 da fazla uzun geldi
 
 
 def sekiller(argv):
@@ -50,10 +51,20 @@ def serit(m, noktalar, kalinlik, saydamlik):
             m.ellipse([x1 - w1, y1 - w1, x1 + w1, y1 + w1], fill=int(saydamlik[i]))
 
 
+def uzat(s, en_kisa):
+    """Ok kısa kaldıysa başlangıcı aynı yönde geri çeker (uç, gösterilen yerde kalır)."""
+    x1, y1, x2, y2 = s
+    L = math.hypot(x2 - x1, y2 - y1)
+    if L >= en_kisa:
+        return s
+    gx, gy = ((x2 - x1) / L, (y2 - y1) / L) if L else (0.8, -0.6)  # nokta verildiyse sol alttan gelsin
+    return [x2 - gx * en_kisa, y2 - gy * en_kisa, x2, y2]
+
+
 def ok_ucu(x, y, a, H):
     """Geriye kıvrık kanatlı sivri uç (örnekteki gibi): uç (x,y), yön a, boy H."""
-    yerel = [(0, 0), (-1.1 * H, -0.62 * H)]
-    yerel += [(-1.1 * H + 0.5 * H * t, -0.62 * H * (1 - t) ** 1.6) for t in (0.2, 0.4, 0.6, 0.8, 1.0)]  # içe kıvrık, ince kanat
+    yerel = [(0, 0), (-1.5 * H, -0.58 * H)]  # uzun, sivri uç
+    yerel += [(-1.5 * H + 0.7 * H * t, -0.58 * H * (1 - t) ** 1.6) for t in (0.2, 0.4, 0.6, 0.8, 1.0)]  # içe kıvrık, ince kanat
     yerel += [(x_, -y_) for x_, y_ in reversed(yerel[1:-1])]  # alt kanat: ayna
     ca, sa = math.cos(a), math.sin(a)
     return [(x + px * ca - py * sa, y + px * sa + py * ca) for px, py in yerel]
@@ -62,6 +73,7 @@ def ok_ucu(x, y, a, H):
 def ciz_resmi(liste, olcek=1.0):
     """Şekilleri örnek.jpg tarzında çizer: düz mavi, dalgalı gövde, kuyrukta silikleşme, uca doğru kalınlaşma.
     -> (RGBA resim, sol, üst) ekran görüntüsü pikseli cinsinden."""
+    liste = [(ad, uzat(s, EN_KISA_OK * olcek) if ad == "ok" else s) for ad, s in liste]
     nok = []
     for ad, s in liste:
         if ad == "daire":
@@ -83,7 +95,7 @@ def ciz_resmi(liste, olcek=1.0):
         if ad == "ok":
             (x1, y1), (x2, y2) = d(s[0], s[1]), d(s[2], s[3])
             a = math.atan2(y2 - y1, x2 - x1)
-            ex, ey = x2 - 0.5 * H * math.cos(a), y2 - 0.5 * H * math.sin(a)  # gövde ucun çentiğinde biter
+            ex, ey = x2 - 0.7 * H * math.cos(a), y2 - 0.7 * H * math.sin(a)  # gövde ucun çentiğinde biter
             L = math.hypot(ex - x1, ey - y1)
             gx, gy, nx, ny = (ex - x1) / (L or 1), (ey - y1) / (L or 1), -math.sin(a), math.cos(a)
             gen_ = min(18 * olcek * S, L * 0.09)  # dalga genliği; uçta sıfır: ok düz girsin
