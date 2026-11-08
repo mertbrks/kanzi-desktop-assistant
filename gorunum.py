@@ -44,6 +44,26 @@ def tema(renk, sekil, kravat=True):
     ok_resmi.cache_clear()
 
 
+def logo_kaydet(png, ico):
+    """Seçili tasarımla (renk, şekil, kravat) sırıtan Kanzi'yi logo yapar: masaüstü kısayolu ve pencere simgesi."""
+    global OLCEK
+    eski = OLCEK
+    OLCEK = 4  # büyük çiz, küçültürken keskin kalsın
+    karakter.cache_clear()  # önbellek ölçeği bilmiyor: başka ölçekteki çizimler karışmasın
+    try:
+        im = karakter("bos", False, (0.0, 0.0), 0, 0.0, "sirit")
+    finally:
+        OLCEK = eski
+        karakter.cache_clear()
+    im = im.crop(im.getbbox())
+    kenar = max(im.size) + 8
+    kare_ = Image.new("RGBA", (kenar, kenar), (0, 0, 0, 0))
+    kare_.alpha_composite(im, ((kenar - im.width) // 2, (kenar - im.height) // 2))
+    kare_ = kare_.resize((256, 256), Image.LANCZOS)
+    kare_.save(png)
+    kare_.save(ico, sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+
+
 def kw():
     return round(KW * OLCEK)
 

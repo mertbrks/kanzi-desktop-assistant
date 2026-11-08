@@ -276,6 +276,7 @@ class Kanzi:
         self.istek_no, self.akan, self.akan_goster, self.akan_zaman = 0, "", "", 0.0
         self.ayar = ayar_oku()
         g.tema(self.ayar["renk"], self.ayar["sekil"], self.ayar["kravat"])
+        self.logo_tazele()
         self.pencere = self.kutu = None
         self.kok = tk.Tk()
         self.kok.overrideredirect(True)
@@ -672,6 +673,17 @@ class Kanzi:
         g_.bind("<Return>", gonder)
         g_.bind("<Escape>", kapat)
 
+    def logo_tazele(self):
+        """Logo seçili tasarımı izlesin. Değişmediyse dokunma (masaüstü simge önbelleği boşuna yenilenmesin)."""
+        tasarim = f"{self.ayar['renk']}|{self.ayar['sekil']}|{self.ayar['kravat']}"
+        if getattr(self, "_logo", None) == tasarim:
+            return
+        self._logo = tasarim
+        try:
+            g.logo_kaydet(os.path.join(KLASOR, "kanzi_v2.png"), os.path.join(KLASOR, "kanzi_v2_mavi.ico"))
+        except OSError as e:  # logo yazılamadı diye Kanzi durmasın
+            print("logo:", e, flush=True)
+
     def yazilan(self, metin):
         """Komut kutusundan ya da sohbet penceresinden yazılan."""
         if metin.lower() == "yeni konu":
@@ -869,6 +881,7 @@ class Kanzi:
             bas_resim.configure(image=p.resim)
             secili.configure(text=f"{a['renk']} · {a['sekil']}")
             self.son_kare = None  # Kanzi yeni haliyle yeniden çizilsin
+            self.logo_tazele()
 
         for tur, secenekler, baslik in (("renk", g.RENKLER, "Renk"), ("sekil", g.SEKILLER, "Şekil")):
             satir = tk.Frame(k, bg=g.KART)
