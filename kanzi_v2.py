@@ -408,7 +408,9 @@ class Kanzi:
         if self.sayfa < len(self.sayfalar) - 1 and time.time() > self.yazi_bitis:
             self.sayfaya_git(self.sayfa + 1)  # okuma süresi doldu: kendiliğinden sıradaki
         self.ciz()
-        if self.oturuyor:  # komut kutusu/ayarlar açılıp kapanınca Windows koltuğu öne alabiliyor: hep Kanzi'nin arkasında
+        # komut kutusu/ayarlar açılıp kapanınca Windows koltuğu öne alabiliyor: hep Kanzi'nin arkasında.
+        # Yalnızca bozulunca düzelt: her karede pencere sırası değişince Windows yazarken gizlenen imleci geri getiriyor
+        if self.oturuyor and user32.GetWindow(ctypes.c_void_p(self.hwnd), 2) != self.koltuk_hwnd:  # GW_HWNDNEXT
             user32.SetWindowPos(ctypes.c_void_p(self.koltuk_hwnd), ctypes.c_void_p(self.hwnd), 0, 0, 0, 0, 0x13)
 
     def olay(self, tur, veri):
@@ -537,6 +539,11 @@ class Kanzi:
         x = self.x - (im.width - g.kw() if self.sol and yazi else 0)  # sola açılan baloncukta küre sağ uçta
         anahtar = (durum, kirp, bak, ifade, int(aci) // 15, round(halka, 1), round(g.zip_hesapla(t)), yazi,
                    self.ok, self.sol, int(x), int(self.y) - dans)
+        # Yazarken (klavye kullanılıyor, fare duruyor) kıpırdama: pencere her değiştiğinde Windows yazarken
+        # gizlediği imleci geri getiriyor, imleç yanıp sönüyordu. Yalnız baloncuk yazısı değişince çiz.
+        yaziyor = isler.bosta_saniye() < 2 and t - self.fare_zaman > 2
+        if yaziyor and self.son_kare and self.son_kare[7] == yazi:
+            return
         if anahtar != self.son_kare:  # değişmeyen kareyi tekrar basma
             self.son_kare = anahtar
             g.katmana_bas(self.hwnd, im, x, self.y - dans)
