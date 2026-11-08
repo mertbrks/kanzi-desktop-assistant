@@ -89,7 +89,7 @@ def ciz_resmi(liste, olcek=1.0):
     d = lambda x, y: ((x - sol) * S, (y - ust) * S)
     mk = Image.new("L", (int(gen * S), int(boy * S)), 0)
     m = ImageDraw.Draw(mk)
-    H, N = 38 * olcek * S, 64  # ok ucu boyu, şeritteki nokta sayısı
+    H, N = 26 * olcek * S, 64  # ok ucu boyu (Mert küçük istedi), şeritteki nokta sayısı
     for ad, s in liste:
         ts = [i / N for i in range(N + 1)]
         if ad == "ok":
@@ -101,7 +101,7 @@ def ciz_resmi(liste, olcek=1.0):
             gen_ = min(18 * olcek * S, L * 0.09)  # dalga genliği; uçta sıfır: ok düz girsin
             nk = [(x1 + gx * L * t + nx * gen_ * math.sin(2 * math.pi * t) * (1 - t),
                    y1 + gy * L * t + ny * gen_ * math.sin(2 * math.pi * t) * (1 - t)) for t in ts]
-            serit(m, nk, [1.5 * S + 0.36 * H * t ** 0.8 for t in ts], [255 * min(1, t / 0.6) ** 1.4 for t in ts])
+            serit(m, nk, [1.5 * S + 12 * olcek * S * t ** 0.8 for t in ts], [255 * min(1, t / 0.6) ** 1.4 for t in ts])
             m.polygon(ok_ucu(x2, y2, a, H), fill=255)
         elif ad == "daire":
             r = (s[2] if len(s) == 3 else 60) * S
