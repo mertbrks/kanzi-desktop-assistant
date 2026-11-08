@@ -149,4 +149,6 @@ if __name__ == "__main__":
         sys.exit(f"anlaşılmadı: {e}\n{__doc__}")
     if not liste:
         sys.exit(__doc__)
-    goster(liste, sure)
+    import isler
+    oran = isler.goruntu_orani()  # Claude küçültülmüş görüntünün pikseliyle verir: gerçek piksele büyüt
+    goster([(ad, [v / oran for v in s]) for ad, s in liste], sure)

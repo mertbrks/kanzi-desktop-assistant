@@ -20,7 +20,7 @@ u = ctypes.windll.user32
 def tikla_yaz(x, y, metin, degistir=False):
     eski = wt.POINT()
     u.GetCursorPos(ctypes.byref(eski))
-    gx, gy = x + u.GetSystemMetrics(76), y + u.GetSystemMetrics(77)  # sanal ekranın sol-üstü
+    gx, gy = isler.gercek_nokta(x, y)  # görüntü küçültme oranı + sanal ekranın sol-üstü
     u.SetCursorPos(gx, gy)
     time.sleep(0.05)
     u.mouse_event(0x0002, 0, 0, 0, 0)  # sol tuş bas

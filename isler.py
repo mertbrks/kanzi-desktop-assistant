@@ -2,10 +2,39 @@
 import ctypes
 import ctypes.wintypes as wt
 import datetime
+import json
+import os
 import re
+import tempfile
 import time
 
 user32 = ctypes.windll.user32
+
+# ---------- Claude'un gördüğü ekran görüntüsü <-> gerçek ekran ----------
+# Claude büyük görüntüyü kendisi küçültüyor (1920x1200 -> ~1356x848) ve küçük görüntünün pikseliyle cevap veriyordu:
+# işaretler sola-yukarı kayıyordu. Görüntüyü biz küçültürüz, oranı dosyaya yazarız; tikla_yaz/ciz/HEDEF geri büyütür.
+EKRAN_BILGI = os.path.join(tempfile.gettempdir(), "kanzi_v2_ekran.json")
+
+
+def kucultme_orani(w, h):
+    """Claude'un görüntüyü kendisi küçültmeyeceği oran (uzun kenar ≤1568, ≤1,15 MP)."""
+    return min(1.0, 1568 / max(w, h), (1.15e6 / (w * h)) ** 0.5)
+
+
+def goruntu_orani():
+    """Son Claude ekran görüntüsünün oranı (gerçek piksel × oran = görüntü pikseli); bilgi yoksa 1."""
+    try:
+        with open(EKRAN_BILGI, encoding="utf-8") as f:
+            return float(json.load(f)["oran"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return 1.0
+
+
+def gercek_nokta(x, y):
+    """Claude'un verdiği görüntü pikseli -> gerçek ekran koordinatı (sanal ekranın sol-üstü eklenir)."""
+    oran = goruntu_orani()
+    return round(user32.GetSystemMetrics(76) + x / oran), round(user32.GetSystemMetrics(77) + y / oran)
+
 
 # ---------- hatırlatıcı ----------
 SAYI = {"bir": 1, "iki": 2, "üç": 3, "dört": 4, "beş": 5, "altı": 6, "yedi": 7, "sekiz": 8, "dokuz": 9, "on": 10,

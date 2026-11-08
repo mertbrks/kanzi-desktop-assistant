@@ -176,3 +176,8 @@ assert not _k.kalici and _k.yazi_bitis < 1e12  # kısa söz kendiliğinden kaybo
 Kanzi.soyle(_k, "Soru şunu istiyor.\nÖnce x'i bul.\nSonra çarp.\nCevap: 96")
 assert _k.kalici and _k.yazi_bitis == float("inf")  # anlatım → basılana kadar durur
 print("tamam kalıcı")
+
+assert abs(isler.kucultme_orani(1920, 1200) * 1920 * isler.kucultme_orani(1920, 1200) * 1200 - 1.15e6) < 10
+assert isler.kucultme_orani(1000, 800) == 1.0
+assert ekrana_cevir((678, 424), (0, 0, 0.5)) == (1356, 848)  # küçük görüntü pikseli -> gerçek ekran
+print("tamam oran")

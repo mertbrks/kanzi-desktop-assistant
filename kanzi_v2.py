@@ -34,7 +34,7 @@ import time
 import tkinter as tk
 import zlib
 
-from PIL import ImageGrab, ImageTk
+from PIL import Image, ImageGrab, ImageTk
 
 KLASOR = os.path.dirname(os.path.abspath(__file__))
 if sys.stderr is None:  # pythonw (kısayol) ile açılınca çıktılar kaybolmasın, kütüphaneler çökmesin
@@ -295,7 +295,8 @@ def kopyala_tusla():
 
 def ekrana_cevir(nokta, koken):
     """Ekran görüntüsü pikseli -> gerçek ekran koordinatı (sol/üst monitör eksi koordinatta olabilir)."""
-    return nokta[0] + koken[0], nokta[1] + koken[1]
+    oran = koken[2] if len(koken) > 2 else 1.0  # görüntü küçültüldüyse geri büyüt
+    return round(nokta[0] / oran + koken[0]), round(nokta[1] / oran + koken[1])
 
 
 def dugme(ust, yazi, komut, ana=False):
@@ -1292,23 +1293,32 @@ class Kanzi:
             self.koltuk = [e.x_root - self.surukle[0], e.y_root - self.surukle[1]]
             self.koltugu_bas()
 
-    def ekran_al(self):
-        """Kanzi'siz tüm ekranların görüntüsü. (dosya, imleç x, imleç y) — görüntü pikseliyle."""
+    def ekran_al(self, claude=False):
+        """Kanzi'siz tüm ekranların görüntüsü. (dosya, imleç x, imleç y) — görüntü pikseliyle.
+        claude: Claude'un kendi küçültmeyeceği boya indir, oranı isler.EKRAN_BILGI'ye yaz (OCR için tam boy kalır)."""
         fx, fy = self.kok.winfo_pointerxy()
-        self.koken = (user32.GetSystemMetrics(76), user32.GetSystemMetrics(77))  # sanal ekranın sol-üstü
+        ox, oy = user32.GetSystemMetrics(76), user32.GetSystemMetrics(77)  # sanal ekranın sol-üstü
         ekran = os.path.join(tempfile.gettempdir(), "kanzi_v2_ekran.png")
         if self.gorunmez:  # Kanzi zaten görüntüye girmiyor, gizlemeye gerek yok
-            ImageGrab.grab(all_screens=True).save(ekran)
-            return ekran, fx - self.koken[0], fy - self.koken[1]
-        self.kok.withdraw()  # Kanzi ekran görüntüsünde görünmesin
-        try:
-            self.kok.update()
-            time.sleep(0.05)  # pencere ekrandan gerçekten silinsin
-            ImageGrab.grab(all_screens=True).save(ekran)
-        finally:
-            self.kok.deiconify()  # ne olursa olsun Kanzi gizli kalmasın
-        self.son_kare = None  # yeniden basılsın
-        return ekran, fx - self.koken[0], fy - self.koken[1]
+            resim = ImageGrab.grab(all_screens=True)
+        else:
+            self.kok.withdraw()  # Kanzi ekran görüntüsünde görünmesin
+            try:
+                self.kok.update()
+                time.sleep(0.05)  # pencere ekrandan gerçekten silinsin
+                resim = ImageGrab.grab(all_screens=True)
+            finally:
+                self.kok.deiconify()  # ne olursa olsun Kanzi gizli kalmasın
+            self.son_kare = None  # yeniden basılsın
+        oran = isler.kucultme_orani(*resim.size) if claude else 1.0
+        if oran < 1:
+            resim = resim.resize((round(resim.width * oran), round(resim.height * oran)), Image.LANCZOS)
+        resim.save(ekran)
+        if claude:
+            with open(isler.EKRAN_BILGI, "w", encoding="utf-8") as f:
+                json.dump({"oran": oran}, f)
+        self.koken = (ox, oy, oran)
+        return ekran, round((fx - ox) * oran), round((fy - oy) * oran)
 
     def sor_yerel(self, metin, sesli, onek="", ekran=False, baglam=None, yakin=False):
         """baglam: eski konuşma da gitsin mi; ekran sorusunda ve açıkla/çevir'de gitmez, yoksa eski konuyu anlatıyor."""
@@ -1356,7 +1366,7 @@ class Kanzi:
         self.durum, self.sesli, self.iptal_edildi, self.yerelde = "dusunuyor", sesli, False, False
         self.akan, self.akan_goster, self.bolucu = "", "", CumleBolucu()
         try:
-            ekran, fx, fy = self.ekran_al()  # Claude ekran görüntüsü pikseliyle konuşur
+            ekran, fx, fy = self.ekran_al(claude=True)  # Claude ekran görüntüsü pikseliyle konuşur
         except Exception:
             self.durum = "bos"
             raise
