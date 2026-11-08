@@ -58,6 +58,7 @@ KOMUTLAR = {1: "komut", 2: "acikla", 3: "cik", 4: "ses", 5: "iptal", 6: "sessiz"
 OTURUM = os.path.join(KLASOR, "oturum.txt")
 AYAR = os.path.join(KLASOR, "ayarlar.json")
 SOHBET = os.path.join(KLASOR, "sohbet.json")
+OGRENDIKLERIM = os.path.join(KLASOR, "ogrendiklerim.txt")  # Mert'in "unutma: …" dedikleri, satır satır
 BASLANGIC = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
                          "Kanzi v2.lnk")  # Windows açılınca Kanzi de açılsın: buradaki kısayol
 MASAUSTU_KISAYOL = os.path.join(os.path.expanduser("~"), "Desktop", "Kanzi v2.lnk")  # sohbet penceresindeki geçmiş (son 300 mesaj)
@@ -123,6 +124,10 @@ kullanıcı sonraki mesajda onaylarsa yap. Dosya silme, sistem ayarı değiştir
 Tıklaması gereken yeri ekran görüntüsünde bul, tek adımı anlat ve cevabın son satırına
 "HEDEF: x,y" yaz (ekran görüntüsü pikseli). Kanzi oraya gidip gösterecek; kullanıcı tıklayınca yeni ekran
 görüntüsüyle sıradaki adımı isteyeceğiz. Görev tamamlandıysa HEDEF yazma, "Bitti" de.
+"Notlarıma ekle" denirse: Mert'in Obsidian notları C:\\Users\\mertb_pj783d3\\Desktop\\obs\\claaude kökündeki .md
+dosyaları (ör. "Algo and Data.md" algoritma dersi). Ekrandaki ya da seçili konuyu Türkçe, başlıklı, maddeli kısa ders
+notu olarak konuya uyan kök dosyanın SONUNA ekle (PowerShell Add-Content -Encoding utf8; dosyayı silme, üzerine yazma);
+uyan yoksa kökte konu adıyla yeni .md aç. wiki/, raw/, index.md, log.md, CLAUDE.md dosyalarına DOKUNMA.
 Bitince ne yaptığını söyle."""
 
 
@@ -765,6 +770,15 @@ class Kanzi:
         except OSError as e:  # logo yazılamadı diye Kanzi durmasın
             print("logo:", e, flush=True)
 
+    def ogren(self, ne, bilgi):
+        if ne == "liste":
+            notlar = isler.ogrendiklerim(OGRENDIKLERIM)
+            return self.soyle(" · ".join(notlar) if notlar else "Henüz bir şey öğretmedin. \"Unutma: …\" de.")
+        with open(OGRENDIKLERIM, "a", encoding="utf-8") as f:
+            f.write(bilgi.replace("\n", " ") + "\n")
+        self.yuz("sirit", 1.2)
+        self.soyle(random.choice(("Tamam, aklımda.", "Not aldım, unutmam.", "Tamamdır, bundan sonra öyle.")))
+
     def gizle_goster(self):
         self.gizli = not self.gizli
         user32.ShowWindow(ctypes.c_void_p(self.hwnd), 0 if self.gizli else 4)  # 4: SW_SHOWNOACTIVATE
@@ -1007,6 +1021,19 @@ class Kanzi:
         tk.Radiobutton(k, text="Sadece göstersin ve öğretsin: hiçbir şeye dokunmaz", value="ogret",
                        variable=yetki, command=kaydet, **secim).pack(fill="x", pady=(4, 0))
 
+        k = kart("Öğrendiklerim", sol)
+        satir = tk.Frame(k, bg=g.KART)
+        satir.pack(fill="x")
+        tk.Label(satir, text=f"{len(isler.ogrendiklerim(OGRENDIKLERIM))} not · \"unutma: …\", \"bundan sonra …\"",
+                 **dict(yazi, fg=g.SOLUK)).pack(side="left")
+
+        def ogrendiklerimi_ac():
+            if not os.path.exists(OGRENDIKLERIM):
+                open(OGRENDIKLERIM, "w", encoding="utf-8").close()
+            os.startfile(OGRENDIKLERIM)  # Not Defteri'nde düzenle/sil; Kanzi her soruda yeniden okur
+
+        dugme(satir, "Aç / düzenle", ogrendiklerimi_ac).pack(side="right")
+
         k = kart("Konuşma", sol)
         satir = tk.Frame(k, bg=g.KART)
         satir.pack(fill="x")
@@ -1143,9 +1170,12 @@ class Kanzi:
         dikte = isler.dikte_komutu(metin)
         if dikte:
             return self.dikte_yaz(dikte)
-        h = isler.hatirlatma(metin)
+        h = isler.hatirlatma(metin)  # "10 dk sonra ilacı unutma" hatırlatmadır, öğrenme değil: önce bu
         if h:
             return self.hatirlat_kur(*h)
+        ogren = isler.ogrenme_komutu(metin)
+        if ogren:
+            return self.ogren(*ogren)
         medya = isler.medya_komutu(metin)
         if medya:
             isler.tusa_bas(*medya[1:])
@@ -1223,6 +1253,7 @@ class Kanzi:
     def sor_yerel(self, metin, sesli, onek="", ekran=False, baglam=None, yakin=False):
         """baglam: eski konuşma da gitsin mi; ekran sorusunda ve açıkla/çevir'de gitmez, yoksa eski konuyu anlatıyor."""
         baglam = not ekran if baglam is None else baglam
+        self.yerel.ek = isler.ogrendiklerim_metni(OGRENDIKLERIM)  # Not Defteri'nde düzenlendiyse de güncel
         if self.durum in ("dusunuyor", "dinliyor", "cozuyor"):
             self.soyle("Bi dur ya, önceki iş bitmedi (iptal: Ctrl+Alt+X).")
             return
@@ -1271,6 +1302,7 @@ class Kanzi:
             raise
         sistem = SISTEM.format(ekran=ekran, x=fx, y=fy, klasor=KLASOR,
                                py=os.path.join(os.path.dirname(sys.executable), "python.exe"))
+        sistem += isler.ogrendiklerim_metni(OGRENDIKLERIM)
         threading.Thread(target=self._claude, args=(istek, araclar, sistem, self.istek_no), daemon=True).start()
 
     def _claude(self, istek, araclar, sistem, no):

@@ -126,3 +126,15 @@ assert dikte_komutu("yaz bakalım bir şiir") is None and dikte_komutu("arama ku
 from kanzi_v2 import SISTEM
 assert "tikla_yaz.py" in SISTEM.format(ekran="e", x=1, y=2, klasor="K", py="P")
 print("tamam dikte")
+
+import isler
+assert isler.ogrenme_komutu("unutma: kahveyi şekersiz içerim") == ("ekle", "kahveyi şekersiz içerim")
+assert isler.ogrenme_komutu("Kanzi, bundan sonra kısa cevap ver") == ("ekle", "bundan sonra kısa cevap ver")
+assert isler.ogrenme_komutu("neler biliyorsun") == ("liste", "")
+assert isler.ogrenme_komutu("artık hava nasıl") is None
+assert isler.ogrenme_komutu("10 dakika sonra ilacı unutma") is None  # hatırlatma değil, öğrenme de değil: Claude
+_d = os.path.join(tempfile.mkdtemp(), "o.txt")
+assert isler.ogrendiklerim_metni(_d) == ""
+open(_d, "w", encoding="utf-8").write("a\n\nb\n")
+assert isler.ogrendiklerim_metni(_d).endswith("- a\n- b")
+print("tamam öğren")

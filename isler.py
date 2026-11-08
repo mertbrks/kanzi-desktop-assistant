@@ -106,6 +106,46 @@ def tusa_bas(tus, kez=1):
         user32.keybd_event(tus, 0, 3, 0)  # + KEYUP
 
 
+# ---------- öğrendiklerim: Mert'in kalıcı tercihleri ----------
+OGREN = re.compile(r"^(?:(?:kanzi|kanka)[\s,]+)?(?:bunu\s+)?(?:unutma|aklında\s+(?:tut|olsun)|şunu\s+bil)\s*[:,]?\s*(.+)$",
+                   re.I | re.S)
+BUNDAN_SONRA = re.compile(r"^(?:(?:kanzi|kanka)[\s,]+)?((?:bundan\s+(?:sonra|böyle))\s.+)$", re.I | re.S)
+OGRENDIKLERIN = re.compile(r"^(?:(?:kanzi|kanka)[\s,]+)?(?:ne(?:ler)?\s+(?:biliyorsun|öğrendin)|aklında\s+ne(?:ler)?\s+var|"
+                           r"öğrendikler\w*\s+(?:göster|neler|listele|oku))", re.I)
+
+
+def ogrenme_komutu(metin):
+    """'unutma: kahveyi şekersiz içerim' / 'bundan sonra kısa cevap ver' -> ('ekle', not);
+    'neler biliyorsun' -> ('liste', ''); değilse None. 'bundan sonra …' yalnız kısa cümlede sayılır."""
+    m = metin.strip().rstrip(".!")
+    if OGRENDIKLERIN.match(m):
+        return "liste", ""
+    o = OGREN.match(m) or (len(m) < 90 and BUNDAN_SONRA.match(m))
+    return ("ekle", o.group(1).strip()) if o and o.group(1).strip() else None
+
+
+def ogrendiklerim(yol):
+    try:
+        with open(yol, encoding="utf-8") as f:
+            return [s.strip() for s in f if s.strip()]
+    except OSError:
+        return []
+
+
+def ogrendiklerim_metni(yol, sinir=1500):
+    """Sistem istemine eklenecek blok; boşsa ''. En yeni notlar önce sığdırılır."""
+    notlar, secilen, boy = ogrendiklerim(yol), [], 0
+    for n in reversed(notlar):
+        if boy + len(n) > sinir:
+            break
+        secilen.insert(0, n)
+        boy += len(n) + 3
+    if not secilen:
+        return ""
+    return ("\nMert'in sana öğrettikleri (kalıcı tercihleri ve bilgileri; bunlara uy):\n"
+            + "\n".join(f"- {n}" for n in secilen))
+
+
 # ---------- dikte: söyleneni aynen yaz ----------
 DIKTE = re.compile(r"^(?:(?:kanzi|kanka)[\s,]+)?(?:(?:aynen|olduğu\s+gibi)\s+yaz|dikte(?:\s+et)?|yaz)\s*[:,]\s*(.+)$",
                    re.I | re.S)

@@ -136,6 +136,7 @@ class Yerel:
     def __init__(self):
         self.surec = None
         self.durum = "kapali"  # kapali | basliyor | hazir | yok (OpenJarvis/Ollama kurulu değil)
+        self.ek = ""  # sistem istemine eklenen: Mert'in öğrettikleri
         self.gecmis = []  # son konuşmalar: yerel model de bağlamı bilsin (Claude cevapları dahil)
 
     def hazir_mi(self):
@@ -192,7 +193,7 @@ class Yerel:
     def sor(self, soru, parca, iptal=lambda: False, gecmis=True):
         """Akışlı sorar; her yazı parçası için parca(metin) çağrılır. Tam cevabı döner. Hata olursa OSError."""
         govde = {"model": MODEL, "stream": True, "temperature": 0.4, "max_tokens": 400,
-                 "messages": [{"role": "system", "content": SISTEM}, *(self.gecmis if gecmis else []),
+                 "messages": [{"role": "system", "content": SISTEM + self.ek}, *(self.gecmis if gecmis else []),
                               {"role": "user", "content": soru}]}
         istek = urllib.request.Request(f"{ADRES}/v1/chat/completions", data=json.dumps(govde).encode(),
                                        headers={"Content-Type": "application/json"})
