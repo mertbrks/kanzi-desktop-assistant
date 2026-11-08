@@ -32,6 +32,7 @@ import tempfile
 import threading
 import time
 import tkinter as tk
+import zlib
 
 from PIL import ImageGrab, ImageTk
 
@@ -171,6 +172,18 @@ def sohbet_oku(yol=None):
 def sohbet_yaz(mesajlar, yol=None):
     with open(yol or SOHBET, "w", encoding="utf-8") as f:
         json.dump(mesajlar[-300:], f, ensure_ascii=False)
+
+
+def kisayol_simgesi(ico):
+    """Masaüstündeki 'Kanzi v2' kısayolunun simgesini ico yapar ve Windows'a simgeleri yenilemesini söyler."""
+    lnk = os.path.join(os.path.expanduser("~"), "Desktop", "Kanzi v2.lnk")
+    if not os.path.exists(lnk):
+        return
+    subprocess.run(["powershell", "-NoProfile", "-Command",
+                    f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{lnk}'); "
+                    f"$s.IconLocation='{ico},0'; $s.Save()"],
+                   capture_output=True, timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
+    ctypes.windll.shell32.SHChangeNotify(0x08000000, 0, None, None)  # SHCNE_ASSOCCHANGED
 
 
 def calisma_alani():
@@ -680,7 +693,16 @@ class Kanzi:
             return
         self._logo = tasarim
         try:
-            g.logo_kaydet(os.path.join(KLASOR, "kanzi_v2.png"), os.path.join(KLASOR, "kanzi_v2_mavi.ico"))
+            ico = os.path.join(KLASOR, "kanzi_v2_mavi.ico")
+            g.logo_kaydet(os.path.join(KLASOR, "kanzi_v2.png"), ico)
+            # Windows simgeyi dosya yoluna göre önbellekte tutuyor: kısayol için her tasarıma ayrı adlı kopya
+            kisa = os.path.join(KLASOR, f"logo_{zlib.crc32(tasarim.encode()):08x}.ico")
+            if not os.path.exists(kisa):
+                shutil.copyfile(ico, kisa)
+                for eski in os.listdir(KLASOR):
+                    if eski.startswith("logo_") and eski.endswith(".ico") and eski != os.path.basename(kisa):
+                        os.remove(os.path.join(KLASOR, eski))
+                threading.Thread(target=kisayol_simgesi, args=(kisa,), daemon=True).start()
         except OSError as e:  # logo yazılamadı diye Kanzi durmasın
             print("logo:", e, flush=True)
 
